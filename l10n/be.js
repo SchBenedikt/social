@@ -7,6 +7,7 @@ OC.L10N.register(
     "Profile" : "Профіль",
     "Open documentation" : "Адкрыць дакументацыю",
     "Add attachment" : "Дадаць далучэнне",
+    "Add emoji" : "Дадаць эмодзі",
     "Delete" : "Выдаліць",
     "Website" : "Вэб-сайт",
     "Reply" : "Адказаць",
