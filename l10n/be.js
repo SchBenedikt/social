@@ -10,6 +10,7 @@ OC.L10N.register(
     "Add emoji" : "Дадаць эмодзі",
     "Delete" : "Выдаліць",
     "Website" : "Вэб-сайт",
+    "No results found" : "Вынікаў не знойдзена",
     "Reply" : "Адказаць",
     "Hello" : "Вітаем",
     "Close" : "Закрыць",
