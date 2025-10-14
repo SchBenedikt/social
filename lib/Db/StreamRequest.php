@@ -333,7 +333,7 @@ class StreamRequest extends StreamRequestBuilder {
 		$qb = $this->countNotesSelectSql();
 		$qb->limitToInReplyTo($id, true);
 
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		$data = $cursor->fetch();
 		$cursor->closeCursor();
 
@@ -355,7 +355,7 @@ class StreamRequest extends StreamRequestBuilder {
 		$qb->innerJoinStreamDest('recipient', 'id_prim', 'sd', 's');
 		$qb->limitToDest(ACore::CONTEXT_PUBLIC, 'recipient', '', 'sd');
 
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		$data = $cursor->fetch();
 		$cursor->closeCursor();
 
@@ -852,7 +852,7 @@ class StreamRequest extends StreamRequestBuilder {
 			$qb->limitToType($type);
 		}
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 
@@ -863,7 +863,7 @@ class StreamRequest extends StreamRequestBuilder {
 		$qb = $this->getStreamDeleteSql();
 		$qb->limitToAttributedTo($actorId, true);
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 

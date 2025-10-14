@@ -256,7 +256,7 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 		$qb = $this->getCacheActorsDeleteSql();
 		$qb->limitToIdPrim($qb->prim($id));
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 
@@ -268,7 +268,7 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 		$qb->selectDistinct('shared_inbox')
 			->from(self::TABLE_CACHE_ACTORS);
 		$inbox = [];
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		while ($data = $cursor->fetch()) {
 			$inbox[] = $data['shared_inbox'];
 		}

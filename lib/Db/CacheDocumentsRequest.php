@@ -130,7 +130,7 @@ class CacheDocumentsRequest extends CacheDocumentsRequestBuilder {
 		$qb = $this->getCacheDocumentsSelectSql();
 		$this->limitToUrl($qb, $url);
 
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		$data = $cursor->fetch();
 		$cursor->closeCursor();
 
@@ -154,7 +154,7 @@ class CacheDocumentsRequest extends CacheDocumentsRequestBuilder {
 		$qb->limitToAccount($account);
 
 		$documents = [];
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		while ($data = $cursor->fetch()) {
 			$documents[] = $this->parseCacheDocumentsSelectSql($data);
 		}
@@ -179,7 +179,7 @@ class CacheDocumentsRequest extends CacheDocumentsRequestBuilder {
 			$this->limitToPublic($qb);
 		}
 
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		$data = $cursor->fetch();
 		$cursor->closeCursor();
 
@@ -201,7 +201,7 @@ class CacheDocumentsRequest extends CacheDocumentsRequestBuilder {
 		$this->limitToUrl($qb, $item->getUrl());
 		$this->limitToParentId($qb, $item->getParentId());
 
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		$data = $cursor->fetch();
 		$cursor->closeCursor();
 
@@ -220,7 +220,7 @@ class CacheDocumentsRequest extends CacheDocumentsRequestBuilder {
 		$this->limitToDBFieldInt($qb, 'error', 0);
 
 		$documents = [];
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		while ($data = $cursor->fetch()) {
 			$documents[] = $this->parseCacheDocumentsSelectSql($data);
 		}
@@ -237,7 +237,7 @@ class CacheDocumentsRequest extends CacheDocumentsRequestBuilder {
 		$qb = $this->getCacheDocumentsDeleteSql();
 		$this->limitToUrl($qb, $url);
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 
@@ -248,7 +248,7 @@ class CacheDocumentsRequest extends CacheDocumentsRequestBuilder {
 		$qb = $this->getCacheDocumentsDeleteSql();
 		$this->limitToIdString($qb, $id);
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 	public function deleteByParent(string $parentId): void {
@@ -285,7 +285,7 @@ class CacheDocumentsRequest extends CacheDocumentsRequestBuilder {
 		);
 
 		$documents = [];
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		while ($data = $cursor->fetch()) {
 			$documents[] = $this->parseCacheDocumentsSelectSql($data);
 		}

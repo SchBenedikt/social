@@ -79,7 +79,7 @@ class ClientRequest extends ClientRequestBuilder {
 
 		$qb->limitToId($client->getId());
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 
@@ -95,7 +95,7 @@ class ClientRequest extends ClientRequestBuilder {
 
 		$qb->limitToId($client->getId());
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 
@@ -137,6 +137,6 @@ class ClientRequest extends ClientRequestBuilder {
 		$date->setTimestamp(time() - ClientService::TIME_TOKEN_TTL);
 		$qb->limitToDBFieldDateTime('last_update', $date, true);
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 }

@@ -101,7 +101,7 @@ class ActorsRequest extends ActorsRequestBuilder {
 		$qb = $this->getActorsSelectSql();
 		$qb->limitToIdString($id);
 
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		$data = $cursor->fetch();
 		$cursor->closeCursor();
 
@@ -146,7 +146,7 @@ class ActorsRequest extends ActorsRequestBuilder {
 		);
 		$qb->limitToPreferredUsername($handle);
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 	/**
@@ -156,7 +156,7 @@ class ActorsRequest extends ActorsRequestBuilder {
 		$qb = $this->getActorsDeleteSql();
 		$qb->limitToPreferredUsername($handle);
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 

@@ -52,7 +52,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 		}
 
 		$qb->generatePrimaryKey($follow->getId());
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 
@@ -77,7 +77,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 		}
 
 		$qb->generatePrimaryKey($actor->getId());
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 
@@ -91,7 +91,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 		$this->limitToActorId($qb, $follow->getActorId());
 		$this->limitToObjectId($qb, $follow->getObjectId());
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 
@@ -151,7 +151,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 		$qb->limitToType(Follow::TYPE);
 		$qb->limitToAccepted(true);
 
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		$data = $cursor->fetch();
 		$cursor->closeCursor();
 
@@ -165,7 +165,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 	public function countFollows() {
 		$qb = $this->countFollowsSelectSql();
 
-		$cursor = $qb->execute();
+		$cursor = $qb->executeQuery();
 		$data = $cursor->fetch();
 		$cursor->closeCursor();
 
@@ -246,7 +246,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 		$qb = $this->getFollowsDeleteSql();
 		$this->limitToIdString($qb, $follow->getId());
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 	/**
@@ -257,7 +257,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 		$this->limitToActorId($qb, $follow->getActorId());
 		$this->limitToObjectId($qb, $follow->getObjectId());
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 	/**
@@ -269,7 +269,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 		$orX->add($qb->exprLimitToDBField('actor_id_prim', $qb->prim($actorId)));
 		$orX->add($qb->exprLimitToDBField('object_id_prim', $qb->prim($actorId)));
 		$qb->where($orX);
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 	/**
@@ -279,7 +279,7 @@ class FollowsRequest extends FollowsRequestBuilder {
 		$qb = $this->getFollowsDeleteSql();
 		$this->limitToIdString($qb, $id);
 
-		$qb->execute();
+		$qb->executeStatement();
 	}
 
 

@@ -192,6 +192,6 @@ class RequestQueueRequest extends RequestQueueRequestBuilder {
 	//		   ->set('instance', $qb->createNamedParameter($instance));
 	//		$qb->limitToDBField('author_prim', $qb->prim($actorId));
 	//
-	//		$qb->execute();
+	//		$qb->executeStatement();
 	//	}
 }
