@@ -122,13 +122,13 @@ class AccountService {
 	public function getCurrentViewer(): Person {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
-			throw new AccountDoesNotExistException();
+			throw new AccountDoesNotExistException('No user is currently logged in');
 		}
 
 		try {
 			return $this->getActorFromUserId($user->getUID());
 		} catch (Exception $e) {
-			throw new AccountDoesNotExistException();
+			throw new AccountDoesNotExistException('Account not found for current user: ' . $e->getMessage());
 		}
 	}
 
@@ -154,7 +154,7 @@ class AccountService {
 				$this->createActor($userId, $userId);
 				$actor = $this->actorsRequest->getFromUserId($userId);
 			} else {
-				throw new ActorDoesNotExistException();
+				throw new ActorDoesNotExistException('Actor not found for user: ' . $userId);
 			}
 		}
 
