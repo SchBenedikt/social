@@ -714,6 +714,10 @@ class LocalController extends Controller {
 			$match = $this->cacheActorService->getFromAccount($search, false);
 			$match->setCompleteDetails(true);
 		} catch (Exception $e) {
+			// Account not found, continue without exact match
+			$this->logger->debug('No exact match found for account search', [
+				'search' => $search
+			]);
 		}
 
 		try {
@@ -745,6 +749,10 @@ class LocalController extends Controller {
 		try {
 			$match = $this->hashtagService->getHashtag($search);
 		} catch (Exception $e) {
+			// Hashtag not found, continue without exact match
+			$this->logger->debug('No exact hashtag match found', [
+				'search' => $search
+			]);
 		}
 
 		try {
@@ -788,6 +796,11 @@ class LocalController extends Controller {
 					$document = $this->documentService->cacheRemoteDocument($id);
 					$cached[] = $document;
 				} catch (Exception $e) {
+					// Document failed to cache, log and continue
+					$this->logger->warning('Failed to cache remote document', [
+						'exception' => $e,
+						'document_id' => $id
+					]);
 				}
 			}
 

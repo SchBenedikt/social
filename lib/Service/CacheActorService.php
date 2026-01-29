@@ -260,6 +260,10 @@ class CacheActorService {
 			try {
 				$this->getFromId($item->getId());
 			} catch (Exception $e) {
+				$this->logger->warning('Failed to get missing cache remote actor', [
+					'exception' => $e,
+					'actor_id' => $item->getId()
+				]);
 			}
 		}
 
@@ -278,6 +282,10 @@ class CacheActorService {
 			try {
 				$this->getFromId($item->getId(), true);
 			} catch (Exception $e) {
+				$this->logger->warning('Failed to update cache remote actor', [
+					'exception' => $e,
+					'actor_id' => $item->getId()
+				]);
 			}
 		}
 
@@ -299,6 +307,10 @@ class CacheActorService {
 				$this->addRemoteActorDetailCount($item);
 				$this->cacheActorsRequest->updateDetails($item);
 			} catch (Exception $e) {
+				$this->logger->warning('Failed to update details for remote actor', [
+					'exception' => $e,
+					'actor_id' => $item->getId()
+				]);
 			}
 		}
 

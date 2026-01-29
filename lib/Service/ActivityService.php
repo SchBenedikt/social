@@ -161,6 +161,11 @@ class ActivityService {
 
 				return $interface->getItemById($id);
 			} catch (Exception $e) {
+				$this->logger->debug('Failed to get item from interface', [
+					'exception' => $e,
+					'request_type' => $request,
+					'item_id' => $id
+				]);
 			}
 		}
 
