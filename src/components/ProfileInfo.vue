@@ -30,14 +30,13 @@
 				</router-link>
 			</li>
 		</ul>
-			<div class="user-profile__actions">
-				<FollowButton :uid="uid" />
-				<NcButton v-if="serverData.public"
-					type="primary"
-					@click="followRemote">
-					{{ t('social', 'Follow') }}
-				</NcButton>
-			</div>
+		<div class="user-profile__actions">
+			<FollowButton :uid="uid" />
+			<NcButton v-if="serverData.public"
+				type="primary"
+				@click="followRemote">
+				{{ t('social', 'Follow') }}
+			</NcButton>
 		</div>
 
 		<!-- Hack to render note safely -->
@@ -46,7 +45,6 @@
 </template>
 
 <script>
-import OpenInNew from 'vue-material-design-icons/OpenInNew.vue'
 import NcAvatar from '@nextcloud/vue/dist/Components/NcAvatar.js'
 import NcButton from '@nextcloud/vue/dist/Components/NcButton.js'
 import { generateUrl } from '@nextcloud/router'
@@ -55,14 +53,15 @@ import accountMixins from '../mixins/accountMixins.js'
 import serverData from '../mixins/serverData.js'
 import currentUser from '../mixins/currentUserMixin.js'
 import FollowButton from './FollowButton.vue'
+import MessageContent from './MessageContent.js'
 
 export default {
 	name: 'ProfileInfo',
 	components: {
 		FollowButton,
+		MessageContent,
 		NcAvatar,
 		NcButton,
-		OpenInNew,
 	},
 	mixins: [
 		accountMixins,
@@ -120,7 +119,7 @@ export default {
 		padding: 24px;
 		text-align: center;
 		background-color: var(--color-main-background);
-		
+
 		h2 {
 			margin-top: 16px;
 			font-size: 24px;

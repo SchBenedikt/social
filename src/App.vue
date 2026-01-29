@@ -49,8 +49,7 @@
 						type="url"
 						class="setup-input"
 						required>
-					<NcButton
-						type="primary"
+					<NcButton type="primary"
 						native-type="submit">
 						{{ t('social', 'Finish setup') }}
 					</NcButton>
@@ -262,7 +261,7 @@ export default {
 		flex-direction: column;
 		gap: 20px;
 	}
-	
+
 	.setup-input {
 		width: 300px;
 		max-width: 100%;
