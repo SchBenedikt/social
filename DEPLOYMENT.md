@@ -49,10 +49,13 @@ sudo -u www-data composer install --no-dev
 First, install Node.js dependencies:
 
 ```bash
-CYPRESS_INSTALL_BINARY=0 npm install
+CYPRESS_INSTALL_BINARY=0 npm ci
 ```
 
-Note: We skip Cypress binary installation as it's only needed for testing.
+**Note:** We use `npm ci` instead of `npm install` for:
+- Faster, reproducible builds from package-lock.json
+- Strict version locking (important for production)
+- We skip Cypress binary installation as it's only needed for testing
 
 Then build the production assets:
 
@@ -197,8 +200,11 @@ When updating the app:
 
 1. Pull latest code or download new version
 2. Run `composer install --no-dev`
-3. Run `npm run build` to rebuild JavaScript
-4. Clear Nextcloud cache: `php occ maintenance:mode --on && php occ maintenance:mode --off`
+3. Run `npm ci` to ensure dependencies match package-lock.json
+4. Run `npm run build` to rebuild JavaScript
+5. Clear Nextcloud cache: `php occ maintenance:mode --on && php occ maintenance:mode --off`
+
+**Note:** Always use `npm ci` instead of `npm install` for deployment to ensure reproducible builds.
 
 ## Support
 

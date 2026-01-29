@@ -8,7 +8,11 @@
 
 ## ⚠️ Important Information ⚠️
 
-I'm currently working on this great application to get it running smoothly again. For now, only DEPLOYMENT.md serves as a guideline for setup! You can view your own profile, publish posts, mention, follow, and like/comment on users. There are still some bugs, and the application isn't entirely stable.
+This application provides ActivityPub/Fediverse integration for Nextcloud. You can follow and interact with users from Mastodon, Pleroma, and other federated platforms!
+
+**📖 Documentation:**
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment and troubleshooting guide
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Development setup, workflows, and contribution guidelines
 
 ![](img/screenshot.png)
 
@@ -35,10 +39,20 @@ If you want to reset all Social app data e.g. to change the domain used for Soci
 
 ## Development setup
 
+For detailed development instructions, see **[DEVELOPMENT.md](DEVELOPMENT.md)**.
+
+**Quick start:**
+
 1. ☁ Clone the app into the `apps` folder of your Nextcloud: `git clone https://github.com/nextcloud/social.git`
-2. 👩‍💻 Run `make dev-setup` to install the dependencies
-3. 🏗 To build the Javascript whenever you make changes, run `make build-js`
-4. ✅ Enable the app through the app management of your Nextcloud
+2. 👩‍💻 Install dependencies: `npm ci && composer install`
+3. 🏗 Build JavaScript: `npm run build` (or `npm run watch` for development)
+4. ✅ Enable the app: `php occ app:enable social`
 5. 🎉 Partytime! Help fix [some issues](https://github.com/nextcloud/social/issues) and [review pull requests](https://github.com/nextcloud/social/pulls) 👍
+
+**Key Points:**
+- Use `npm ci` instead of `npm install` for reproducible builds
+- The `package-lock.json` is committed and should be kept in sync
+- JavaScript must be built before the app will work
+- See DEVELOPMENT.md for CI/CD setup, testing, and contribution guidelines
 
 ![](img/social-promo.png)
