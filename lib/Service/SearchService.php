@@ -68,6 +68,9 @@ class SearchService {
 			try {
 				return [$this->cacheActorService->getFromId($search)];
 			} catch (Exception $e) {
+				$this->logger->debug('URI search failed, actor not found', [
+					'search' => $search
+				]);
 			}
 		}
 
@@ -93,6 +96,9 @@ class SearchService {
 			// search and cache eventual exact account first
 			$this->cacheActorService->getFromAccount($search);
 		} catch (Exception $e) {
+			$this->logger->debug('Account search failed to get exact match', [
+				'search' => $search
+			]);
 		}
 
 		return $this->cacheActorService->searchCachedAccounts($search);

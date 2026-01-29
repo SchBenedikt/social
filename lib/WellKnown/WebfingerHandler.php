@@ -217,10 +217,10 @@ class WebfingerHandler implements IHandler {
 		// work around to extract resource:
 		// on some setup (i.e. tests) the data are not available from IRequest
 		$queryString = parse_url($request->getRequestUri(), PHP_URL_QUERY);
-		if ($queryString === null || $queryString === false) {
+		if ($queryString === null || $queryString === false || $queryString === '') {
 			return '';
 		}
-		
+
 		parse_str($queryString, $query);
 
 		return $query['resource'] ?? '';

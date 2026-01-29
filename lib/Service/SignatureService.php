@@ -312,6 +312,11 @@ class SignatureService {
 			$signature->sign();
 			$object->setSignature($signature);
 		} catch (Exception $e) {
+			$this->logger->error('Failed to sign object with LinkedDataSignature', [
+				'exception' => $e,
+				'object_id' => $object->getId()
+			]);
+			throw $e;
 		}
 	}
 
@@ -403,6 +408,10 @@ class SignatureService {
 		try {
 			$target = strtolower($request->getMethod()) . ' ' . $request->getRequestUri();
 		} catch (Exception $e) {
+			$this->logger->error('Failed to generate request target for signature', [
+				'exception' => $e
+			]);
+			throw new SignatureException('Cannot generate request target: ' . $e->getMessage());
 		}
 
 		$estimated = '';
