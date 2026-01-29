@@ -44,6 +44,11 @@ class ActionsRequest extends ActionsRequestBuilder {
 				$qb->createNamedParameter(new DateTime('now'), IQueryBuilder::PARAM_DATE)
 			);
 		} catch (Exception $e) {
+			$this->logger->error('Error creating DateTime in ActionsRequest::save', [
+				'exception' => $e,
+				'action_id' => $like->getId()
+			]);
+			throw $e;
 		}
 
 		$qb->executeStatement();

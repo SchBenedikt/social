@@ -63,6 +63,11 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 				$qb->createNamedParameter($dTime, IQueryBuilder::PARAM_DATE)
 			);
 		} catch (Exception $e) {
+			$this->logger->error('Error creating DateTime in CacheActorsRequest::save', [
+				'exception' => $e,
+				'actor_id' => $actor->getId()
+			]);
+			throw $e;
 		}
 
 		if ($actor->hasIcon()) {
@@ -78,6 +83,13 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 		try {
 			$qb->executeStatement();
 		} catch (DBException $e) {
+			// Log only if it's not a constraint violation (which means actor already exists)
+			if ($e->getReason() !== DBException::REASON_CONSTRAINT_VIOLATION) {
+				$this->logger->error('Error saving cached actor', [
+					'exception' => $e,
+					'actor_id' => $actor->getId()
+				]);
+			}
 		}
 	}
 
@@ -112,6 +124,11 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 				$qb->createNamedParameter($dTime, IQueryBuilder::PARAM_DATE)
 			);
 		} catch (Exception $e) {
+			$this->logger->error('Error creating DateTime in CacheActorsRequest::update', [
+				'exception' => $e,
+				'actor_id' => $actor->getId()
+			]);
+			throw $e;
 		}
 
 		if ($actor->hasIcon()) {
@@ -138,6 +155,11 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 				$qb->createNamedParameter(new DateTime('now'), IQueryBuilder::PARAM_DATE)
 			);
 		} catch (Exception $e) {
+			$this->logger->error('Error creating DateTime in CacheActorsRequest::updateDetails', [
+				'exception' => $e,
+				'actor_id' => $actor->getId()
+			]);
+			throw $e;
 		}
 
 		$qb->limitToIdString($actor->getId());

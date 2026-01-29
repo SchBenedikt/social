@@ -49,6 +49,11 @@ class FollowsRequest extends FollowsRequestBuilder {
 				$qb->createNamedParameter(new DateTime('now'), IQueryBuilder::PARAM_DATE)
 			);
 		} catch (Exception $e) {
+			$this->logger->error('Error creating DateTime in FollowsRequest::save', [
+				'exception' => $e,
+				'follow_id' => $follow->getId()
+			]);
+			throw $e;
 		}
 
 		$qb->generatePrimaryKey($follow->getId());
@@ -74,6 +79,11 @@ class FollowsRequest extends FollowsRequestBuilder {
 				$qb->createNamedParameter(new DateTime('now'), IQueryBuilder::PARAM_DATE)
 			);
 		} catch (Exception $e) {
+			$this->logger->error('Error creating DateTime in FollowsRequest::generateLoopbackAccount', [
+				'exception' => $e,
+				'actor_id' => $actor->getId()
+			]);
+			throw $e;
 		}
 
 		$qb->generatePrimaryKey($actor->getId());

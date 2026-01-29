@@ -64,6 +64,11 @@ class ActorsRequest extends ActorsRequestBuilder {
 				$qb->createNamedParameter(new DateTime('now'), IQueryBuilder::PARAM_DATE)
 			);
 		} catch (Exception $e) {
+			$this->logger->error('Error creating DateTime in ActorsRequest::refreshKeys', [
+				'exception' => $e,
+				'actor_id' => $actor->getId()
+			]);
+			throw $e;
 		}
 
 		$this->limitToIdString($qb, $actor->getId());
