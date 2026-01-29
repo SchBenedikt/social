@@ -30,6 +30,7 @@ import { showError } from '@nextcloud/dialogs'
 import NcDashboardWidget from '@nextcloud/vue/dist/Components/NcDashboardWidget.js'
 import NcEmptyContent from '@nextcloud/vue/dist/Components/NcEmptyContent.js'
 import { notificationSummary } from '../services/notifications.js'
+import logger from '../services/logger.js'
 
 export default {
 	name: 'Dashboard',
@@ -123,7 +124,7 @@ export default {
 					this.state = 'error'
 				} else {
 					// there was an error in notif processing
-					console.error(error)
+					logger.error('Error processing Social notifications', { error })
 				}
 			}
 		},

@@ -115,6 +115,7 @@ import PreviewGrid from './PreviewGrid.vue'
 import VisibilitySelect from '../Visibility/VisibilitySelect.vue'
 import SubmitStatusButton from './SubmitStatusButton.vue'
 import MessageContent from '../MessageContent.js'
+import logger from '../../services/logger.js'
 
 /**
  * @typedef LocalAttachment
@@ -199,7 +200,7 @@ export default {
 								avatar: user.local ? generateUrl(`/avatar/${user.preferredUsername}/32`) : generateUrl(`apps/social/api/v1/global/actor/avatar?id=${user.id}`),
 							}))
 
-							console.debug('[Composer] Found users for', text, response.data.result, users)
+							logger.debug('Found users for mention', { text, users: users.length })
 							populate(users)
 						}, 200),
 					},
@@ -230,7 +231,7 @@ export default {
 								...response.data.result.tags.map(({ hashtag }) => ({ key: hashtag, value: hashtag })),
 							]
 
-							console.debug('[Composer] Found tags for', text, response.data.result, tags)
+							logger.debug('Found hashtags', { text, tags: tags.length })
 							populate(tags)
 						}, 200),
 					},
@@ -332,7 +333,7 @@ export default {
 			})
 		},
 		insert(emoji) {
-			console.debug('[Composer] insert emoji', emoji)
+			logger.debug('Inserting emoji', { emoji: typeof emoji })
 			if (typeof emoji === 'object') {
 				const category = Object.keys(emoji)[0]
 				const emojis = emoji[category]
@@ -376,7 +377,7 @@ export default {
 			}
 		},
 		updatePostFromTribute(event) {
-			console.debug('[Composer] update from tribute', event)
+			logger.debug('Updating post from tribute', { eventType: event?.type })
 			this.updateStatusContent()
 		},
 		async createPost(event) {
@@ -401,7 +402,7 @@ export default {
 				visibility: this.visibility,
 			}
 
-			console.debug('[Composer] Posting status', statusData)
+			logger.debug('Posting status', { visibility: statusData.visibility, hasReply: !!statusData.in_reply_to_id })
 
 			// Post message
 			try {
