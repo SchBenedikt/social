@@ -5,9 +5,14 @@
 <template>
 	<div class="preview-item-wrapper">
 		<div class="preview-item">
-			<MediaAttachment :attachment="preview.data" />
+			<MediaAttachment v-if="isMediaAttachment" :attachment="preview.data" />
+			<FileAttachmentPreview v-else
+				:file-name="fileName"
+				:file-size="fileSize"
+				:file-type="fileType"
+				@delete="$emit('delete', randomKey)" />
 
-			<div class="preview-item__actions">
+			<div v-if="isMediaAttachment" class="preview-item__actions">
 				<NcButton type="tertiary-no-background" @click="$emit('delete', randomKey)">
 					<template #icon>
 						<Close :size="16" fill-color="white" />
@@ -24,6 +29,7 @@ import Close from 'vue-material-design-icons/Close.vue'
 import NcButton from '@nextcloud/vue/dist/Components/NcButton.js'
 import { translate } from '@nextcloud/l10n'
 import MediaAttachment from '../MediaAttachment.vue'
+import FileAttachmentPreview from './FileAttachmentPreview.vue'
 
 export default {
 	name: 'PreviewGridItem',
@@ -31,6 +37,7 @@ export default {
 		Close,
 		NcButton,
 		MediaAttachment,
+		FileAttachmentPreview,
 	},
 	props: {
 		/** @type {import('vue').PropType<import('./Composer.vue').LocalAttachment>} */
@@ -43,7 +50,49 @@ export default {
 			required: true,
 		},
 	},
+	computed: {
+		isMediaAttachment() {
+			// Check if the attachment has media data (image, video, audio)
+			if (!this.preview.data) {
+				return false
+			}
+
+			const type = this.preview.data.type || ''
+			return type === 'image' || type === 'video' || type === 'gifv' || type === 'audio'
+		},
+		fileName() {
+			if (this.preview.file) {
+				return this.preview.file.name || ''
+			}
+			if (this.preview.nextcloudPath) {
+				return this.preview.nextcloudPath.split('/').pop() || ''
+			}
+			return this.preview.data?.description || 'Unknown file'
+		},
+		fileSize() {
+			if (this.preview.file) {
+				return this.formatFileSize(this.preview.file.size || 0)
+			}
+			return ''
+		},
+		fileType() {
+			if (this.preview.file) {
+				return this.preview.file.type || 'application/octet-stream'
+			}
+			if (this.preview.data) {
+				return this.preview.data.type || 'unknown'
+			}
+			return 'unknown'
+		},
+	},
 	methods: {
+		formatFileSize(bytes) {
+			if (bytes === 0) return '0 Bytes'
+			const k = 1024
+			const sizes = ['Bytes', 'KB', 'MB', 'GB']
+			const i = Math.floor(Math.log(bytes) / Math.log(k))
+			return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+		},
 		t: translate,
 	},
 }

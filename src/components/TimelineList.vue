@@ -4,30 +4,26 @@
 -->
 <template>
 	<div class="social__timeline">
-		<transition-group name="list" tag="ul">
+		<EmptyContent v-if="timeline.length === 0 && emptyContentData.title !== ''" :item="emptyContentData" />
+		<transition-group v-else name="list" tag="ul">
 			<TimelineEntry v-for="entry in timeline"
 				:key="entry.id"
 				:item="entry"
 				:type="type" />
 		</transition-group>
-		<InfiniteLoading ref="infiniteLoading" :direction="reverseOrder ? 'top' : 'bottom'" @infinite="infiniteHandler">
-			<div slot="spinner">
-				<div class="icon-loading" />
-			</div>
-			<div slot="no-more">
-				<div class="list-end" />
-			</div>
-			<div slot="no-results">
-				<EmptyContent v-if="timeline.length === 0 && emptyContentData.title !== ''" :item="emptyContentData" />
-			</div>
-		</InfiniteLoading>
+		<div v-if="loading" class="timeline-spinner">
+			<NcLoadingIcon :size="40" />
+		</div>
+		<button v-if="timeline.length > 0 && !loading" class="load-more-btn" @click="loadMore">
+			{{ t('social', 'Load more') }}
+		</button>
 	</div>
 </template>
 
 <script>
-import InfiniteLoading from 'vue-infinite-loading'
-
 import { showError } from '@nextcloud/dialogs'
+import NcLoadingIcon from '@nextcloud/vue/dist/Components/NcLoadingIcon.js'
+import { translate } from '@nextcloud/l10n'
 
 import TimelineEntry from './TimelineEntry.vue'
 import CurrentUserMixin from './../mixins/currentUserMixin.js'
@@ -38,8 +34,8 @@ export default {
 	name: 'TimelineList',
 	components: {
 		TimelineEntry,
-		InfiniteLoading,
 		EmptyContent,
+		NcLoadingIcon,
 	},
 	mixins: [CurrentUserMixin],
 	props: {
@@ -61,46 +57,47 @@ export default {
 			infoHidden: false,
 			state: [],
 			intervalId: -1,
+			loading: false,
 			emptyContent: {
 				default: {
 					image: 'img/undraw/posts.svg',
-					title: t('social', 'No posts found'),
-					description: t('social', 'Posts from people you follow will show up here'),
+					title: translate('social', 'No posts found'),
+					description: translate('social', 'Posts from people you follow will show up here'),
 				},
 				direct: {
 					image: 'img/undraw/direct.svg',
-					title: t('social', 'No direct messages found'),
-					description: t('social', 'Posts directed to you will show up here'),
+					title: translate('social', 'No direct messages found'),
+					description: translate('social', 'Posts directed to you will show up here'),
 				},
 				timeline: {
 					image: 'img/undraw/local.svg',
-					title: t('social', 'No local posts found'),
-					description: t('social', 'Posts from other people on this instance will show up here'),
+					title: translate('social', 'No local posts found'),
+					description: translate('social', 'Posts from other people on this instance will show up here'),
 				},
 				notifications: {
 					image: 'img/undraw/notifications.svg',
-					title: t('social', 'No notifications found'),
-					description: t('social', 'You have not received any notifications yet'),
+					title: translate('social', 'No notifications found'),
+					description: translate('social', 'You have not received any notifications yet'),
 				},
 				federated: {
 					image: 'img/undraw/global.svg',
-					title: t('social', 'No global posts found'),
-					description: t('social', 'Posts from federated instances will show up here'),
+					title: translate('social', 'No global posts found'),
+					description: translate('social', 'Posts from federated instances will show up here'),
 				},
 				favourites: {
 					image: 'img/undraw/likes.svg',
-					title: t('social', 'No liked posts found'),
+					title: translate('social', 'No liked posts found'),
 				},
 				profile: {
 					image: 'img/undraw/profile.svg',
-					title: t('social', 'You have not tooted yet'),
+					title: translate('social', 'You have not tooted yet'),
 				},
 				tags: {
 					image: 'img/undraw/profile.svg',
-					title: t('social', 'No posts found for this tag'),
+					title: translate('social', 'No posts found for this tag'),
 				},
 				'single-post': {
-					title: this.showParents ? '' : t('social', 'No replies found'),
+					title: this.showParents ? '' : translate('social', 'No replies found'),
 				},
 			},
 		}
@@ -152,7 +149,8 @@ export default {
 		clearInterval(this.intervalId)
 	},
 	methods: {
-		async infiniteHandler($state) {
+		t: translate,
+		async loadMore() {
 			const params = {
 				account: this.currentUser.uid,
 			}
@@ -166,14 +164,13 @@ export default {
 			}
 
 			try {
-				/** @type {import('../types/Mastodon').Context} */
-				const response = await this.$store.dispatch('fetchTimeline', params)
-
-				response.length > 0 ? $state.loaded() : $state.complete()
+				this.loading = true
+				await this.$store.dispatch('fetchTimeline', params)
 			} catch (error) {
 				showError('Failed to load more timeline entries')
 				logger.error('Failed to load more timeline entries', { error })
-				$state.complete()
+			} finally {
+				this.loading = false
 			}
 		},
 		async fetchNewStatuses() {
@@ -213,5 +210,28 @@ export default {
 .list-leave-to {
 	opacity: 0;
 	transform: translateX(-100px);
+}
+
+.timeline-spinner {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 2rem;
+}
+
+.load-more-btn {
+	display: block;
+	margin: 1rem auto;
+	padding: 0.75rem 1.5rem;
+	background-color: var(--color-primary);
+	color: white;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 1rem;
+
+	&:hover {
+		background-color: var(--color-primary-hover);
+	}
 }
 </style>

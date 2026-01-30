@@ -3,18 +3,19 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import Vue from 'vue'
+import { defineComponent, h } from 'vue'
 import Emoji from './Emoji.vue'
 
-export default Vue.component('MessageContent', {
+export default defineComponent({
+	name: 'MessageContent',
 	props: {
 		item: {
 			type: Object,
 			required: true,
 		},
 	},
-	render(createElement) {
-		return formatMessage(createElement, this.item)
+	render() {
+		return formatMessage(h, this.item)
 	},
 })
 

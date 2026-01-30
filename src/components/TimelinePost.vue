@@ -3,13 +3,14 @@
   - SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <template>
-	<div class="post-content" :data-social-status="item.id">
-		<div class="post-header">
+	<article class="post-content" :data-social-status="item.id">
+		<header class="post-header">
 			<div class="post-author-wrapper" :title="item.account.acct">
 				<router-link v-if="item.account"
 					:to="{ name: 'profile',
 						params: { account: item.account.acct }
-					}">
+					}"
+					:aria-label="t('social', 'View profile of {acct}', { acct: item.account.acct })">
 					<span class="post-author">
 						{{ item.account.display_name }}
 					</span>
@@ -20,15 +21,17 @@
 			</div>
 			<a :data-timestamp="timestamp"
 				class="post-timestamp live-relative-timestamp"
-				:title="formattedDate"
+				:title="t('social', 'Posted: {date}', { date: formattedDate })"
+				:aria-label="t('social', 'Posted {time}', { time: relativeTimestamp })"
 				@click="getSinglePostTimeline">
 				{{ relativeTimestamp }}
 			</a>
 			<VisibilityIcon v-if="visibility"
 				:title="visibility.text"
+				:aria-label="t('social', 'Visibility: {visibility}', { visibility: visibility.text })"
 				class="post-visibility"
 				:visibility="visibility.id" />
-		</div>
+		</header>
 		<div v-if="item.content" class="post-message">
 			<MessageContent :item="item" />
 		</div>
@@ -91,7 +94,7 @@
 				</NcActionButton>
 			</NcActions>
 		</div>
-	</div>
+	</article>
 </template>
 
 <script>
@@ -270,7 +273,7 @@ export default {
 		line-height: 1.6em;
 		border-radius: 8px;
 
-		::v-deep a.widget-default {
+		:deep(a.widget-default) {
 			text-decoration: none !important;
 		}
 

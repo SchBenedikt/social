@@ -4,7 +4,6 @@
  */
 
 import axios from '@nextcloud/axios'
-import { set } from 'vue'
 import { generateUrl } from '@nextcloud/router'
 import { showError } from '@nextcloud/dialogs'
 import logger from '../services/logger.js'
@@ -30,11 +29,11 @@ const state = {
  * @param {import('../types/Mastodon').Account} payload.data
  */
 const addAccount = (state, { actorId, data }) => {
-	set(state.accounts, actorId, { ...state.accounts[actorId], ...data })
-	set(state.accountsFollowers, actorId, [])
-	set(state.accountsFollowings, actorId, [])
+	state.accounts[actorId] = { ...state.accounts[actorId], ...data }
+	state.accountsFollowers[actorId] = []
+	state.accountsFollowings[actorId] = []
 	const accountId = (data.acct.indexOf('@') === -1) ? data.acct + '@' + new URL(data.url).hostname : data.acct
-	set(state.accountIdMap, accountId, data.url)
+	state.accountIdMap[accountId] = data.url
 }
 const _getActorIdForAccount = (account) => state.accountIdMap[account]
 
@@ -63,7 +62,7 @@ const mutations = {
 	 * @param {import('../types/Mastodon').Relationship} payload.data
 	 */
 	addRelationship(state, { actorId, data }) {
-		set(state.accountsRelationships, actorId, data)
+		state.accountsRelationships[actorId] = data
 	},
 	/**
 	 * @param  state
@@ -80,7 +79,7 @@ const mutations = {
 				data: actor,
 			})
 		}
-		set(state.accountsFollowers, _getActorIdForAccount(account), users)
+		state.accountsFollowers[_getActorIdForAccount(account)] = users
 	},
 	/**
 	 * @param  state
@@ -97,16 +96,16 @@ const mutations = {
 				data: actor,
 			})
 		}
-		set(state.accountsFollowings, _getActorIdForAccount(account), users)
+		state.accountsFollowings[_getActorIdForAccount(account)] = users
 	},
 	followAccount(state, accountToFollow) {
 		state.accountsFollowings[_getActorIdForAccount(accountToFollow)].push(accountToFollow)
-		set(state.accountsRelationships[state.accounts[_getActorIdForAccount(accountToFollow)].id], 'following', true)
+		state.accountsRelationships[state.accounts[_getActorIdForAccount(accountToFollow)].id].following = true
 	},
 	unfollowAccount(state, accountToUnfollow) {
 		const followingList = state.accountsFollowings[_getActorIdForAccount(accountToUnfollow)]
 		followingList.splice(followingList.indexOf(accountToUnfollow), 1)
-		set(state.accountsRelationships[state.accounts[_getActorIdForAccount(accountToUnfollow)].id], 'following', false)
+		state.accountsRelationships[state.accounts[_getActorIdForAccount(accountToUnfollow)].id].following = false
 	},
 }
 

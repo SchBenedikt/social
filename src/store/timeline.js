@@ -5,8 +5,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import Vue from 'vue'
-
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { showError } from '@nextcloud/dialogs'
@@ -57,9 +55,9 @@ const state = {
  * @param {import ('../types/Mastodon.js').Status} status
  */
 function addToStatuses(state, status) {
-	Vue.set(state.statuses, status.id, status)
+	state.statuses[status.id] = status
 	if (status.reblog !== undefined && status.reblog !== null) {
-		Vue.set(state.statuses, status.reblog.id, status.reblog)
+		state.statuses[status.reblog.id] = status.reblog
 	}
 }
 
@@ -143,7 +141,7 @@ const mutations = {
 	 */
 	likeStatus(state, { status }) {
 		if (state.statuses[status.id] !== undefined) {
-			Vue.set(state.statuses[status.id], 'favourited', true)
+			state.statuses[status.id].favourited = true
 			state.statuses[status.id].favourites_count++
 		}
 	},
@@ -154,7 +152,7 @@ const mutations = {
 	 */
 	unlikeStatus(state, { status }) {
 		if (state.statuses[status.id] !== undefined) {
-			Vue.set(state.statuses[status.id], 'favourited', false)
+			state.statuses[status.id].favourited = false
 			state.statuses[status.id].favourites_count--
 		}
 	},
@@ -165,7 +163,7 @@ const mutations = {
 	 */
 	boostStatus(state, { status }) {
 		if (state.statuses[status.id] !== undefined) {
-			Vue.set(state.statuses[status.id], 'reblogged', true)
+			state.statuses[status.id].reblogged = true
 			state.statuses[status.id].reblogs_count++
 		}
 	},
@@ -176,7 +174,7 @@ const mutations = {
 	 */
 	unboostStatus(state, { status }) {
 		if (state.statuses[status.id] !== undefined) {
-			Vue.set(state.statuses[status.id], 'reblogged', false)
+			state.statuses[status.id].reblogged = false
 			state.statuses[status.id].reblogs_count--
 		}
 	},
@@ -257,8 +255,16 @@ const actions = {
 	 */
 	async post(context, status) {
 		try {
-			const { data } = await axios.post(generateUrl('apps/social/api/v1/statuses'), status)
-			logger.info('Post created', data.id)
+			const postData = {
+				content: status.status || '',
+				type: status.visibility || 'public',
+				to: status.to || [],
+				replyTo: status.in_reply_to_id ? String(status.in_reply_to_id) : '',
+				attachments: status.media_ids || [],
+				hashtags: status.hashtags || [],
+			}
+			const { data } = await axios.post(generateUrl('apps/social/api/v1/post'), postData)
+			logger.info('Post created', data.post?.id || data.id)
 		} catch (error) {
 			showError('Failed to create a status')
 			logger.error('Failed to create a status', { error })

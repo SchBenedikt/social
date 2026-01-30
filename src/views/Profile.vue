@@ -3,14 +3,14 @@
   - SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <template>
-	<div :class="{'icon-loading': !accountLoaded}" class="social__wrapper">
-		<ProfileInfo v-if="accountLoaded && accountInfo" :uid="uid" />
+	<div v-if="accountLoaded" class="social__wrapper">
+		<ProfileInfo v-if="accountInfo" :uid="uid" />
 
 		<Composer v-if="accountInfo && currentAccount && $route.name === 'profile'" :initial-mention="accountInfo.acct === currentAccount.acct ? null : accountInfo" default-visibility="direct" />
 
 		<!-- TODO: we have no details, timeline and follower list for non-local accounts for now -->
-		<router-view v-if="accountLoaded && accountInfo && isLocal" name="details" />
-		<NcEmptyContent v-if="accountLoaded && !accountInfo"
+		<router-view v-if="accountInfo && isLocal" name="details" />
+		<NcEmptyContent v-if="!accountInfo"
 			:title="t('social', 'User not found')"
 			:description="t('social', 'Sorry, we could not find the account of {userId}', { userId: uid })">
 			<template #icon>
@@ -20,10 +20,14 @@
 			</template>
 		</NcEmptyContent>
 	</div>
+	<div v-else class="social__wrapper profile-loading">
+		<NcLoadingIcon :size="60" />
+	</div>
 </template>
 
 <script>
 import NcEmptyContent from '@nextcloud/vue/dist/Components/NcEmptyContent.js'
+import NcLoadingIcon from '@nextcloud/vue/dist/Components/NcLoadingIcon.js'
 import { generateFilePath } from '@nextcloud/router'
 import ProfileInfo from './../components/ProfileInfo.vue'
 import Composer from './../components/Composer/Composer.vue'
@@ -34,6 +38,7 @@ export default {
 	name: 'Profile',
 	components: {
 		NcEmptyContent,
+		NcLoadingIcon,
 		ProfileInfo,
 		Composer,
 	},
@@ -85,9 +90,14 @@ export default {
 </script>
 
 <style scoped>
-
-	.social__wrapper.icon-loading {
-		margin-top: 50vh;
+	.social__wrapper {
+		display: flex;
+		flex-direction: column;
 	}
 
+	.profile-loading {
+		align-items: center;
+		justify-content: center;
+		height: 50vh;
+	}
 </style>

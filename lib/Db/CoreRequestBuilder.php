@@ -886,11 +886,8 @@ class CoreRequestBuilder {
 		$orX = $expr->orX();
 		$orX->add($expr->eq($func->lower($pf . '.' . $fieldActorId), $func->lower('ca.id')));
 		if ($author !== null) {
-			$andX = $expr->andX();
-			$andX->add(
-				$this->exprLimitToDBField($qb, 'attributed_to', $author->getId(), true, false, 's')
-			);
-			$andX->add(
+			$andX = $expr->andX(
+				$this->exprLimitToDBField($qb, 'attributed_to', $author->getId(), true, false, 's'),
 				$expr->eq(
 					$func->lower($this->defaultSelectAlias . '.attributed_to'),
 					$func->lower('ca.id')
@@ -988,13 +985,12 @@ class CoreRequestBuilder {
 		$orX->add($expr->eq('sa.stream_id_prim', $pf . '.id_prim'));
 		$orX->add($expr->eq('sa.stream_id_prim', $pf . '.object_id_prim'));
 
-		$on = $expr->andX();
-		$on->add(
+		$on = $expr->andX(
 			$expr->eq(
 				'sa.actor_id_prim', $qb->createNamedParameter($qb->prim($this->viewer->getId()))
-			)
+			),
+			$orX
 		);
-		$on->add($orX);
 
 		$qb->leftJoin(
 			$this->defaultSelectAlias, CoreRequestBuilder::TABLE_STREAM_ACTIONS, 'sa',
@@ -1047,10 +1043,9 @@ class CoreRequestBuilder {
 			->selectAlias('a.object_id', 'action_object_id')
 			->selectAlias('a.type', 'action_type');
 
-		$andX = $expr->andX();
-		$andX->add($expr->eq($func->lower($pf . '.id'), $func->lower('a.object_id')));
-		$andX->add($expr->eq('a.type', $qb->createNamedParameter($type)));
-		$andX->add(
+		$andX = $expr->andX(
+			$expr->eq($func->lower($pf . '.id'), $func->lower('a.object_id')),
+			$expr->eq('a.type', $qb->createNamedParameter($type)),
 			$expr->eq(
 				$func->lower('a.actor_id'),
 				$qb->createNamedParameter(strtolower($this->viewer->getId()))
@@ -1106,33 +1101,27 @@ class CoreRequestBuilder {
 			$pf = $this->defaultSelectAlias;
 		}
 
-		$andX = $expr->andX();
-		$andX->add($this->exprLimitToDBFieldInt($qb, 'accepted', 1, $prefix . '_f'));
+		$conditions = [];
+		$conditions[] = $this->exprLimitToDBFieldInt($qb, 'accepted', 1, $prefix . '_f');
 		if ($asFollower === true) {
-			$andX->add(
-				$expr->eq(
-					$func->lower($pf . '.' . $fieldActorId), $func->lower($prefix . '_f.object_id')
-				)
+			$conditions[] = $expr->eq(
+				$func->lower($pf . '.' . $fieldActorId), $func->lower($prefix . '_f.object_id')
 			);
-			$andX->add(
-				$expr->eq(
-					$func->lower($prefix . '_f.actor_id'),
-					$func->lower($qb->createNamedParameter($this->viewer->getId()))
-				)
+			$conditions[] = $expr->eq(
+				$func->lower($prefix . '_f.actor_id'),
+				$func->lower($qb->createNamedParameter($this->viewer->getId()))
 			);
 		} else {
-			$andX->add(
-				$expr->eq(
-					$func->lower($pf . '.' . $fieldActorId), $func->lower($prefix . '_f.actor_id')
-				)
+			$conditions[] = $expr->eq(
+				$func->lower($pf . '.' . $fieldActorId), $func->lower($prefix . '_f.actor_id')
 			);
-			$andX->add(
-				$expr->eq(
-					$func->lower($prefix . '_f.object_id'),
-					$func->lower($qb->createNamedParameter($this->viewer->getId()))
-				)
+			$conditions[] = $expr->eq(
+				$func->lower($prefix . '_f.object_id'),
+				$func->lower($qb->createNamedParameter($this->viewer->getId()))
 			);
 		}
+
+		$andX = $expr->andX(...$conditions);
 
 		$qb->selectAlias($prefix . '_f.id', $prefix . '_id')
 			->selectAlias($prefix . '_f.type', $prefix . '_type')

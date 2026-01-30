@@ -62,6 +62,7 @@ return [
 		['name' => 'Api#notifications', 'url' => '/api/v1/notifications', 'verb' => 'GET'],
 		['name' => 'Api#tag', 'url' => '/api/v1/timelines/tag/{hashtag}', 'verb' => 'GET'],
 		['name' => 'Api#mediaNew', 'url' => '/api/v1/media', 'verb' => 'POST'],
+		['name' => 'Api#mediaNewFromNextcloud', 'url' => '/api/v1/media/nextcloud', 'verb' => 'POST'],
 		['name' => 'Api#mediaGet', 'url' => '/api/v1/media/{nid}', 'verb' => 'GET'],
 		['name' => 'Api#mediaOpen', 'url' => '/media/{uuid}', 'verb' => 'GET'],
 

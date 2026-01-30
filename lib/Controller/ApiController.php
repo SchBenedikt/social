@@ -47,6 +47,8 @@ use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 use OCP\Files\NotFoundException;
+use OCP\Files\IRootFolder;
+use OCP\Share\IManager as IShareManager;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -71,6 +73,8 @@ class ApiController extends Controller {
 	private ActionService $actionService;
 	private PostService $postService;
 	private ConfigService $configService;
+	private IRootFolder $rootFolder;
+	private IShareManager $shareManager;
 
 	private string $bearer = '';
 	private ?SocialClient $client = null;
@@ -92,6 +96,8 @@ class ApiController extends Controller {
 		ActionService $actionService,
 		PostService $postService,
 		ConfigService $configService,
+		IRootFolder $rootFolder,
+		IShareManager $shareManager,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 
@@ -109,6 +115,8 @@ class ApiController extends Controller {
 		$this->actionService = $actionService;
 		$this->postService = $postService;
 		$this->configService = $configService;
+		$this->rootFolder = $rootFolder;
+		$this->shareManager = $shareManager;
 
 		$authHeader = trim($this->request->getHeader('Authorization'));
 		if (strpos($authHeader, ' ')) {
@@ -228,9 +236,10 @@ class ApiController extends Controller {
 
 			$post = new Post($this->accountService->getActorFromUserId($this->currentSession()));
 			$post->setContent(nl2br($status->getStatus()));
-			$post->setType($status->getVisibility());
+		$visibility = $status->getVisibility() ?: Stream::TYPE_PUBLIC;
+		$post->setType($visibility);
 
-			if (!empty($status->getMediaIds())) {
+		if (!empty($status->getMediaIds())) {
 				$post->setMedias(
 					array_map(function (Document $document): MediaAttachment {
 						return $document->convertToMediaAttachment(
@@ -317,6 +326,106 @@ class ApiController extends Controller {
 			return new DataResponse($mediaAttachment, Http::STATUS_OK);
 		} catch (Exception $e) {
 			$this->logger->warning('issues while mediaNew', ['exception' => $e]);
+
+			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Create media from an existing Nextcloud file
+	 *
+	 * @NoAdminRequired
+	 * @PublicPage
+	 * @NoCSRFRequired
+	 *
+	 * @return DataResponse
+	 */
+	public function mediaNewFromNextcloud(): DataResponse {
+		try {
+			$this->initViewer(true);
+
+			// Get request data
+			$data = json_decode($this->request->getContent(), true);
+			$path = $data['path'] ?? '';
+			$shareType = $data['shareType'] ?? 'internal';
+
+			if (empty($path)) {
+				throw new Exception('No file path provided');
+			}
+
+			$this->logger->debug('[ApiController] mediaNewFromNextcloud: ' . $path);
+
+			// Get the user's file
+			$user = $this->userSession->getUser();
+			if ($user === null) {
+				throw new Exception('User not authenticated');
+			}
+
+			$userFolder = $this->rootFolder->getUserFolder($user->getUID());
+			$file = $userFolder->get($path);
+
+			if (!$file instanceof \OCP\Files\File) {
+				throw new Exception('Invalid file or file not found');
+			}
+
+			// Create document
+			$document = new Document();
+			$document->setLocal(true);
+			$document->setAccount($this->viewer->getPreferredUsername());
+			$document->setUrlCloud($this->configService->getCloudUrl());
+			$document->generateUniqueId('/documents/local');
+
+			// Handle share type
+			if ($shareType === 'public') {
+				// Create public share link
+				$share = $this->shareManager->newShare();
+				$share->setNode($file);
+				$share->setShareType(\OCP\Share\IShare::TYPE_LINK);
+				$share->setSharedBy($user->getUID());
+				$share->setPermissions(\OCP\Constants::PERMISSION_READ);
+				
+				$share = $this->shareManager->createShare($share);
+				$token = $share->getToken();
+				
+				// Set public URL
+				$publicUrl = $this->urlGenerator->linkToRouteAbsolute('files_sharing.sharecontroller.showShare', [
+					'token' => $token
+				]);
+				
+				$document->setPublic(true);
+				$document->setMediaType($file->getMimeType());
+				
+				$this->logger->debug('Created public share: ' . $publicUrl, ['token' => $token]);
+			} else {
+				// Internal only - no public share
+				$document->setPublic(false);
+			}
+
+			// Save file to cache
+			$content = $file->getContent();
+			$tempFile = tmpfile();
+			fwrite($tempFile, $content);
+			$tempPath = stream_get_meta_data($tempFile)['uri'];
+			
+			$this->cacheDocumentService->saveFromTempToCache($document, $tempPath);
+			
+			fclose($tempFile);
+
+			// Save document
+			$service = AP::$activityPub->getInterfaceForItem($document);
+			$service->save($document);
+
+			// Convert to media attachment
+			$mediaAttachment = $document->convertToMediaAttachment($this->urlGenerator);
+
+			$this->logger->debug('Generated attachment from Nextcloud file: ' . json_encode($mediaAttachment));
+
+			return new DataResponse($mediaAttachment, Http::STATUS_OK);
+		} catch (Exception $e) {
+			$this->logger->warning('Issues while mediaNewFromNextcloud', [
+				'exception' => $e,
+				'path' => $data['path'] ?? 'unknown'
+			]);
 
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
 		}

@@ -44,11 +44,17 @@
 			<MessageContent :item="replyTo" />
 		</div>
 		<form class="new-post-form" @submit.prevent="createPost">
+			<div id="composer-help-text" class="sr-only">
+				{{ t('social', 'Type your message. Use @ to mention someone and # for hashtags.') }}
+			</div>
 			<VueTribute :options="tributeOptions">
 				<div ref="composerInput"
+					role="textbox"
+					aria-multiline="true"
+					:aria-label="t('social', 'Compose your post')"
+					aria-describedby="composer-help-text"
 					:contenteditable="!loading"
 					class="message"
-					placeholder="What would you like to share?"
 					:class="{'icon-loading': loading, 'too-long': statusIsTooLong}"
 					@keyup.prevent.enter="keyup"
 					@input="updateStatusContent"
@@ -656,5 +662,18 @@ input[type=submit].inline {
 			color: var(--color-primary-text) !important;
 			opacity: .6;
 		}
-}
+	}
+
+	/* Screen reader only text */
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border-width: 0;
+	}
 </style>
