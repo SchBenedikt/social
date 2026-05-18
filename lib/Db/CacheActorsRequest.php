@@ -265,11 +265,15 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 	 */
 	public function getSharedInboxes(): array {
 		$qb = $this->getQueryBuilder();
-		$qb->selectDistinct('shared_inbox')
+		$qb->selectDistinct("COALESCE(NULLIF(shared_inbox, ''), inbox) AS shared_inbox")
 			->from(self::TABLE_CACHE_ACTORS);
 		$inbox = [];
 		$cursor = $qb->executeQuery();
 		while ($data = $cursor->fetch()) {
+			if ($data['shared_inbox'] === '') {
+				continue;
+			}
+
 			$inbox[] = $data['shared_inbox'];
 		}
 		$cursor->closeCursor();

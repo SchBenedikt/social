@@ -127,7 +127,9 @@ class FediverseService {
 	 * @return array
 	 */
 	public function getListedAddresses(): array {
-		return json_decode($this->configService->getAppValue(ConfigService::SOCIAL_ACCESS_LIST));
+		$listedAddresses = json_decode($this->configService->getAppValue(ConfigService::SOCIAL_ACCESS_LIST), true);
+
+		return is_array($listedAddresses) ? $listedAddresses : [];
 	}
 
 	/**
@@ -138,7 +140,7 @@ class FediverseService {
 	public function isListed(string $address): bool {
 		$list = $this->getListedAddresses();
 
-		return (in_array($address, $list));
+		return in_array($address, $list, true);
 	}
 
 	/**

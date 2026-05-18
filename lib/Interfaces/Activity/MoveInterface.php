@@ -56,12 +56,12 @@ class MoveInterface extends AbstractActivityPubInterface implements IActivityPub
 		$item->checkOrigin($item->getActorId());
 
 		try {
-			$old = $this->cacheActorService->getFromAccount($item->getActorId(), false);
+			$old = $this->cacheActorService->getFromId($item->getActorId());
 		} catch (CacheActorDoesNotExistException $e) {
 			return;
 		}
 
-		$new = $this->cacheActorService->getFromAccount($item->getTarget());
+		$new = $this->cacheActorService->getFromId($item->getTarget());
 		$this->moveAccount($old, $new);
 	}
 
