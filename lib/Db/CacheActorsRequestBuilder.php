@@ -58,10 +58,11 @@ class CacheActorsRequestBuilder extends CoreRequestBuilder {
 		/** @noinspection PhpMethodParametersCountMismatchInspection */
 		$qb->select(
 			'ca.nid', 'ca.id', 'ca.account', 'ca.following', 'ca.followers', 'ca.inbox',
-			"COALESCE(NULLIF(ca.shared_inbox, ''), ca.inbox) AS shared_inbox", 'ca.outbox', 'ca.featured', 'ca.url', 'ca.type', 'ca.preferred_username',
+			'ca.outbox', 'ca.featured', 'ca.url', 'ca.type', 'ca.preferred_username',
 			'ca.name', 'ca.summary', 'ca.public_key', 'ca.local', 'ca.details', 'ca.source', 'ca.creation',
 			'ca.details_update'
 		)
+			->selectAlias($qb->createFunction("COALESCE(NULLIF(ca.shared_inbox, ''), ca.inbox)"), 'shared_inbox')
 			->from(self::TABLE_CACHE_ACTORS, 'ca');
 
 		$qb->setDefaultSelectAlias('ca');

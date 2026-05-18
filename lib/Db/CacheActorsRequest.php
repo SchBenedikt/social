@@ -265,7 +265,10 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 	 */
 	public function getSharedInboxes(): array {
 		$qb = $this->getQueryBuilder();
-		$qb->selectDistinct("COALESCE(NULLIF(shared_inbox, ''), inbox) AS shared_inbox")
+		$qb->selectAlias(
+			$qb->createFunction("COALESCE(NULLIF(shared_inbox, ''), inbox)"),
+			'shared_inbox'
+		)
 			->from(self::TABLE_CACHE_ACTORS);
 		$inbox = [];
 		$cursor = $qb->executeQuery();
@@ -278,7 +281,7 @@ class CacheActorsRequest extends CacheActorsRequestBuilder {
 		}
 		$cursor->closeCursor();
 
-		return $inbox;
+		return array_values(array_unique($inbox));
 	}
 
 
