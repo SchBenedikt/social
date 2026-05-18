@@ -677,9 +677,10 @@ class LocalController extends Controller {
 						'exception' => $e->getMessage()
 					]);
 				}
+				$actor = $this->cacheActorService->getFromLocalAccount($username);
+			} else {
+				$actor = $this->cacheActorService->getFromAccount($account);
 			}
-
-			$actor = $this->cacheActorService->getFromAccount($account);
 			$actor->setExportFormat(ACore::FORMAT_LOCAL);
 
 			// For remote actors, fetch follower/following/post counts
