@@ -29,6 +29,7 @@ use OCA\Social\Model\Post;
 use OCA\Social\Service\AccountService;
 use OCA\Social\Service\ActionService;
 use OCA\Social\Service\CacheActorService;
+use OCA\Social\Service\CurlService;
 use OCA\Social\Service\CacheDocumentService;
 use OCA\Social\Service\ClientService;
 use OCA\Social\Service\ConfigService;
@@ -71,6 +72,7 @@ class ApiController extends Controller {
 	private ActionService $actionService;
 	private PostService $postService;
 	private ConfigService $configService;
+	private CurlService $curlService;
 
 	private string $bearer = '';
 	private ?SocialClient $client = null;
@@ -92,6 +94,7 @@ class ApiController extends Controller {
 		ActionService $actionService,
 		PostService $postService,
 		ConfigService $configService,
+		CurlService $curlService,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 
@@ -109,6 +112,7 @@ class ApiController extends Controller {
 		$this->actionService = $actionService;
 		$this->postService = $postService;
 		$this->configService = $configService;
+		$this->curlService = $curlService;
 
 		$authHeader = trim($this->request->getHeader('Authorization'));
 		if (strpos($authHeader, ' ')) {
@@ -274,6 +278,44 @@ class ApiController extends Controller {
 				'trace' => $e->getTraceAsString()
 			]);
 
+			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+		}
+	}
+
+
+	/**
+	 * @PublicPage
+	 * @NoCSRFRequired
+	 *
+	 * @param int $nid
+	 *
+	 * @return DataResponse
+	 */
+	public function statusUpdate(int $nid): DataResponse {
+		try {
+			$this->initViewer(true);
+
+			$input = file_get_contents('php://input');
+			$status = new Status();
+			$status->import($this->convertInput($input));
+
+			$actor = $this->accountService->getActorFromUserId($this->currentSession(), true);
+
+			$item = $this->postService->editPost(
+				$nid,
+				$actor,
+				nl2br($status->getStatus()),
+				$status->getSpoilerText() !== '' ? $status->getSpoilerText() : null,
+				$status->isSensitive()
+			);
+			$item->setExportFormat(ACore::FORMAT_LOCAL);
+
+			return new DataResponse($item, Http::STATUS_OK);
+		} catch (Exception $e) {
+			$this->logger->error('[ApiController] statusUpdate failed', [
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString()
+			]);
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
 		}
 	}
@@ -485,6 +527,7 @@ class ApiController extends Controller {
 			$this->initViewer(false);
 
 			$item = $this->streamService->getStreamByNid($nid);
+			$item->setExportFormat(ACore::FORMAT_LOCAL);
 
 			return new DataResponse($item, Http::STATUS_OK);
 		} catch (Exception $e) {
@@ -530,6 +573,8 @@ class ApiController extends Controller {
 			if ($item === null) {
 				$item = $this->streamService->getStreamByNid($nid);
 			}
+
+			$item->setExportFormat(ACore::FORMAT_LOCAL);
 
 			return new DataResponse($item, Http::STATUS_OK);
 		} catch (Exception $e) {
@@ -616,12 +661,24 @@ class ApiController extends Controller {
 	): DataResponse {
 		try {
 			$this->initViewer(false);
-			$local = $this->cacheActorService->getFromAccount($account);
+			$actor = $this->cacheActorService->getFromAccount($account);
+
+			$parts = explode('@', $account);
+			$domain = end($parts);
+			$cloudHost = $this->configService->getCloudHost();
+			$socialAddress = $this->configService->getSocialAddress();
+			if ($domain !== '' && $domain !== $cloudHost && $domain !== $socialAddress) {
+				$followingUrl = $actor->getFollowing();
+				if (!empty($followingUrl)) {
+					$result = $this->fetchRemoteCollection($followingUrl, $limit);
+					return new DataResponse($result, Http::STATUS_OK);
+				}
+			}
 
 			$options = new ProbeOptions($this->request);
 			$options->setFormat(ACore::FORMAT_LOCAL);
 			$options->setProbe(ProbeOptions::FOLLOWING)
-				->setAccountId($local->getId())
+				->setAccountId($actor->getId())
 				->setLimit($limit)
 				->setMaxId($max_id)
 				->setMinId($min_id)
@@ -652,12 +709,24 @@ class ApiController extends Controller {
 		try {
 			$this->initViewer(false);
 
-			$local = $this->cacheActorService->getFromAccount($account);
+			$actor = $this->cacheActorService->getFromAccount($account);
+
+			$parts = explode('@', $account);
+			$domain = end($parts);
+			$cloudHost = $this->configService->getCloudHost();
+			$socialAddress = $this->configService->getSocialAddress();
+			if ($domain !== '' && $domain !== $cloudHost && $domain !== $socialAddress) {
+				$followersUrl = $actor->getFollowers();
+				if (!empty($followersUrl)) {
+					$result = $this->fetchRemoteCollection($followersUrl, $limit);
+					return new DataResponse($result, Http::STATUS_OK);
+				}
+			}
 
 			$options = new ProbeOptions($this->request);
 			$options->setFormat(ACore::FORMAT_LOCAL);
 			$options->setProbe(ProbeOptions::FOLLOWERS)
-				->setAccountId($local->getId())
+				->setAccountId($actor->getId())
 				->setLimit($limit)
 				->setMaxId($max_id)
 				->setMinId($min_id)
@@ -780,6 +849,80 @@ class ApiController extends Controller {
 		} catch (Exception $e) {
 			return $this->error($e->getMessage());
 		}
+	}
+
+
+	/**
+	 * @param string $url
+	 * @param int $limit
+	 *
+	 * @return array
+	 */
+	private function fetchRemoteCollection(string $url, int $limit = 20): array {
+		try {
+			$collectionData = $this->curlService->retrieveObject($url);
+		} catch (Exception $e) {
+			return [];
+		}
+
+		$pageData = $collectionData;
+		if (isset($collectionData['first'])) {
+			$pageUrl = is_array($collectionData['first'])
+				? ($collectionData['first']['id'] ?? '')
+				: $collectionData['first'];
+			if (!empty($pageUrl) && is_string($pageUrl)) {
+				try {
+					$pageData = $this->curlService->retrieveObject($pageUrl);
+				} catch (Exception $e) {
+					return [];
+				}
+			} elseif (is_array($collectionData['first'])) {
+				$pageData = $collectionData['first'];
+			}
+		}
+
+		$items = $pageData['orderedItems'] ?? $pageData['items'] ?? [];
+		if (!is_array($items)) {
+			return [];
+		}
+
+		$actors = [];
+		$count = 0;
+		foreach ($items as $item) {
+			if ($count >= $limit) {
+				break;
+			}
+
+			if (is_array($item) && isset($item['id'])) {
+				try {
+					$person = AP::$activityPub->getItemFromData($item);
+					if (AP::$activityPub->isActor($person)) {
+						$person->setExportFormat(ACore::FORMAT_LOCAL);
+						$actors[] = $person;
+						$count++;
+					}
+				} catch (Exception $e) {
+					continue;
+				}
+				continue;
+			}
+
+			$actorId = is_string($item) ? $item : '';
+			if ($actorId === '') {
+				continue;
+			}
+
+			try {
+				$person = $this->cacheActorService->getFromId($actorId);
+				$person->setExportFormat(ACore::FORMAT_LOCAL);
+				$actors[] = $person;
+				$count++;
+			} catch (Exception $e) {
+				continue;
+			}
+		}
+
+		return $actors;
 	}
 
 

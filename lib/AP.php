@@ -17,6 +17,7 @@ use OCA\Social\Interfaces\Activity\AddInterface;
 use OCA\Social\Interfaces\Activity\BlockInterface;
 use OCA\Social\Interfaces\Activity\CreateInterface;
 use OCA\Social\Interfaces\Activity\DeleteInterface;
+use OCA\Social\Interfaces\Activity\MoveInterface;
 use OCA\Social\Interfaces\Activity\RejectInterface;
 use OCA\Social\Interfaces\Activity\RemoveInterface;
 use OCA\Social\Interfaces\Activity\UndoInterface;
@@ -40,6 +41,7 @@ use OCA\Social\Model\ActivityPub\Activity\Add;
 use OCA\Social\Model\ActivityPub\Activity\Block;
 use OCA\Social\Model\ActivityPub\Activity\Create;
 use OCA\Social\Model\ActivityPub\Activity\Delete;
+use OCA\Social\Model\ActivityPub\Activity\Move;
 use OCA\Social\Model\ActivityPub\Activity\Reject;
 use OCA\Social\Model\ActivityPub\Activity\Remove;
 use OCA\Social\Model\ActivityPub\Activity\Undo;
@@ -61,15 +63,9 @@ use OCA\Social\Model\ActivityPub\OrderedCollection;
 use OCA\Social\Model\ActivityPub\Stream;
 use OCA\Social\Service\ConfigService;
 use OCA\Social\Tools\Traits\TArrayTools;
-use OCP\AppFramework\QueryException;
 use OCP\Server;
 use Psr\Log\LoggerInterface;
 
-/**
- * Class AP
- *
- * @package OCA\Social
- */
 class AP {
 	use TArrayTools;
 
@@ -85,8 +81,9 @@ class AP {
 	public FollowInterface $followInterface;
 	public ImageInterface $imageInterface;
 	public LikeInterface $likeInterface;
-	public PersonInterface $personInterface;
+	public MoveInterface $moveInterface;
 	public NoteInterface $noteInterface;
+	public PersonInterface $personInterface;
 	public GroupInterface $groupInterface;
 	public OrganizationInterface $organizationInterface;
 	public ApplicationInterface $applicationInterface;
@@ -110,6 +107,7 @@ class AP {
 		FollowInterface $followInterface,
 		ImageInterface $imageInterface,
 		LikeInterface $likeInterface,
+		MoveInterface $moveInterface,
 		NoteInterface $noteInterface,
 		SocialAppNotificationInterface $notificationInterface,
 		PersonInterface $personInterface,
@@ -133,6 +131,7 @@ class AP {
 		$this->followInterface = $followInterface;
 		$this->imageInterface = $imageInterface;
 		$this->likeInterface = $likeInterface;
+		$this->moveInterface = $moveInterface;
 		$this->noteInterface = $noteInterface;
 		$this->notificationInterface = $notificationInterface;
 		$this->personInterface = $personInterface;
@@ -150,18 +149,13 @@ class AP {
 	public static function init() {
 		try {
 			AP::$activityPub = Server::get(AP::class);
-		} catch (QueryException $e) {
+		} catch (\Exception $e) {
 			Server::get(LoggerInterface::class)
 				->error($e->getMessage(), ['exception' => $e]);
 		}
 	}
 
 
-	/**
-	 * @throws RedundancyLimitException
-	 * @throws SocialAppConfigException
-	 * @throws ItemUnknownException
-	 */
 	public function getItemFromData(array $data, ?ACore $parent = null, int $level = 0): ACore {
 		if (++$level > self::REDUNDANCY_LIMIT) {
 			throw new RedundancyLimitException((string)$level);
@@ -178,18 +172,12 @@ class AP {
 		return $item;
 	}
 
-
-	/**
-	 * @throws RedundancyLimitException
-	 * @throws SocialAppConfigException
-	 */
 	public function getObjectFromData(array $data, ACore &$item, int $level) {
 		try {
 			$objectData = $this->getArray('object', $data, []);
 			if (empty($objectData)) {
 				$objectId = $this->get('object', $data, '');
 				if ($objectId !== '') {
-					// TODO: validate AS_URL
 					$item->setObjectId($objectId);
 				}
 			} else {
@@ -200,16 +188,10 @@ class AP {
 		}
 	}
 
-
-	/**
-	 * @throws RedundancyLimitException
-	 * @throws SocialAppConfigException
-	 */
 	public function getActorFromData(array $data, ACore &$item, int $level) {
 		try {
 			$actorData = $this->getArray('actor_info', $data, []);
 			if (!empty($actorData)) {
-				/** @var Person $actor */
 				$actor = $this->getItemFromData($actorData, $item, $level);
 				$item->setActor($actor);
 			}
@@ -217,11 +199,6 @@ class AP {
 		}
 	}
 
-
-	/**
-	 * @throws SocialAppConfigException
-	 * @throws ItemUnknownException
-	 */
 	public function getSimpleItemFromData(array $data): Acore {
 		$item = $this->getItemFromType($this->get('type', $data, ''));
 		$item->import($data);
@@ -230,13 +207,6 @@ class AP {
 		return $item;
 	}
 
-	/**
-	 * @param string $type
-	 *
-	 * @return ACore
-	 * @throws ItemUnknownException
-	 * @throws SocialAppConfigException
-	 */
 	public function getItemFromType(string $type): ACore {
 		switch ($type) {
 			case Accept::TYPE:
@@ -254,6 +224,10 @@ class AP {
 
 			case Block::TYPE:
 				$item = new Block();
+				break;
+
+			case Move::TYPE:
+				$item = new Move();
 				break;
 
 			case Create::TYPE:
@@ -345,24 +319,10 @@ class AP {
 		return $item;
 	}
 
-
-	/**
-	 * @param ACore $activity
-	 *
-	 * @return IActivityPubInterface
-	 * @throws ItemUnknownException
-	 */
 	public function getInterfaceForItem(Acore $activity): IActivityPubInterface {
 		return $this->getInterfaceFromType($activity->getType());
 	}
 
-
-	/**
-	 * @param string $type
-	 *
-	 * @return IActivityPubInterface
-	 * @throws ItemUnknownException
-	 */
 	public function getInterfaceFromType(string $type): IActivityPubInterface {
 		switch ($type) {
 			case Accept::TYPE:
@@ -394,6 +354,9 @@ class AP {
 
 			case Like::TYPE:
 				return $this->likeInterface;
+
+			case Move::TYPE:
+				return $this->moveInterface;
 
 			case Note::TYPE:
 				return $this->noteInterface;

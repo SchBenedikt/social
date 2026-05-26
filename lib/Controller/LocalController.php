@@ -10,17 +10,24 @@ declare(strict_types=1);
 namespace OCA\Social\Controller;
 
 use Exception;
+use OCA\Social\AP;
 use OCA\Social\AppInfo\Application;
 use OCA\Social\Exceptions\AccountDoesNotExistException;
+use OCA\Social\Exceptions\CacheActorDoesNotExistException;
 use OCA\Social\Exceptions\InvalidResourceException;
 use OCA\Social\Model\ActivityPub\ACore;
 use OCA\Social\Model\ActivityPub\Actor\Person;
+use OCA\Social\Model\ActivityPub\Object\Image;
 use OCA\Social\Model\ActivityPub\Object\Note;
 use OCA\Social\Model\ActivityPub\Stream;
 use OCA\Social\Model\Post;
+use OCA\Social\Model\InstancePath;
 use OCA\Social\Service\AccountService;
+use OCA\Social\Service\ActivityService;
+use OCA\Social\Service\ActorService;
 use OCA\Social\Service\BoostService;
 use OCA\Social\Service\CacheActorService;
+use OCA\Social\Service\CacheDocumentService;
 use OCA\Social\Service\ConfigService;
 use OCA\Social\Service\DocumentService;
 use OCA\Social\Service\FollowService;
@@ -36,6 +43,7 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\FileDisplayResponse;
+use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\IRequest;
 use Psr\Log\LoggerInterface;
@@ -65,6 +73,10 @@ class LocalController extends Controller {
 	private ?Person $viewer = null;
 	private LoggerInterface $logger;
 
+	private ActorService $actorService;
+	private ActivityService $activityService;
+	private CacheDocumentService $cacheDocumentService;
+
 	public function __construct(
 		IRequest $request, ?string $userId, AccountService $accountService, CacheActorService $cacheActorService,
 		HashtagService $hashtagService,
@@ -74,6 +86,9 @@ class LocalController extends Controller {
 		MiscService $miscService,
 		ConfigService $configService,
 		LoggerInterface $logger,
+		ActorService $actorService,
+		ActivityService $activityService,
+		CacheDocumentService $cacheDocumentService,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 
@@ -91,6 +106,9 @@ class LocalController extends Controller {
 		$this->miscService = $miscService;
 		$this->configService = $configService;
 		$this->logger = $logger;
+		$this->actorService = $actorService;
+		$this->activityService = $activityService;
+		$this->cacheDocumentService = $cacheDocumentService;
 	}
 
 	/**
@@ -102,6 +120,172 @@ class LocalController extends Controller {
 		try {
 			throw new \BadMethodCallException('uploadAttachment is not implemented yet');
 		} catch (Exception $e) {
+			return $this->fail($e);
+		}
+	}
+
+
+	/**
+	 * Upload a banner/header image for the current user's profile.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function uploadBanner(): DataResponse {
+		try {
+			if ($this->userId === null) {
+				throw new AccountDoesNotExistException('User not logged in');
+			}
+
+			$file = $_FILES['file'] ?? [];
+			if (empty($file) || $file['error'] !== UPLOAD_ERR_OK) {
+				throw new Exception('no banner file provided');
+			}
+
+			$tmpName = $file['tmp_name'];
+
+			$actor = $this->accountService->getActorFromUserId($this->userId);
+
+			$image = new Image();
+			$image->setLocal(true);
+			$image->setAccount($actor->getPreferredUsername());
+			$image->setUrlCloud($this->configService->getCloudUrl());
+			$image->generateUniqueId('/documents/header');
+			$image->setPublic(true);
+
+			$this->cacheDocumentService->saveFromTempToCache($image, $tmpName);
+			$image->setUrl($image->getMediaUrl(\OC::$server->get(\OCP\IURLGenerator::class), $image->getMimeType()));
+
+			$interface = AP::$activityPub->getInterfaceForItem($image);
+			$interface->save($image);
+
+			$this->accountService->cacheLocalActorByUsername($actor->getPreferredUsername());
+			$cached = $this->cacheActorService->getFromId($actor->getId());
+			$cached->setHeader($image->getUrl());
+			$this->actorService->cacheLocalActor($cached);
+
+			try {
+				$updateItem = clone $cached;
+				$updateItem->addInstancePath(new InstancePath(
+					$cached->getId(), InstancePath::TYPE_FOLLOWERS, InstancePath::PRIORITY_LOW
+				));
+				$this->activityService->updateActivity($cached, $updateItem);
+			} catch (Exception $e) {
+				$this->logger->warning('[LocalController] Failed to federate banner change', [
+					'exception' => $e->getMessage(),
+				]);
+			}
+
+			$this->logger->info('[LocalController] Banner uploaded', [
+				'userId' => $this->userId,
+				'url' => $image->getUrl()
+			]);
+
+			return $this->success([
+				'url' => $image->getUrl(),
+				'id' => $image->getId()
+			]);
+		} catch (Exception $e) {
+			$this->logger->error('[LocalController] uploadBanner failed', [
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString()
+			]);
+			return $this->fail($e);
+		}
+	}
+
+	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @param string $url
+	 *
+	 * @return DataResponse
+	 */
+	public function uploadBannerByUrl(string $url = ''): DataResponse {
+		try {
+			if ($this->userId === null) {
+				throw new AccountDoesNotExistException('User not logged in');
+			}
+			if ($url === '') {
+				throw new Exception('No URL provided');
+			}
+
+			$this->logger->info('[LocalController] Banner upload by URL', [
+				'userId' => $this->userId,
+				'url' => $url,
+			]);
+
+			$tmpFile = tempnam(sys_get_temp_dir(), 'social_banner_');
+			$fp = fopen($tmpFile, 'w+');
+			$ch = curl_init();
+			curl_setopt_array($ch, [
+				CURLOPT_URL => $url,
+				CURLOPT_FILE => $fp,
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_MAXREDIRS => 5,
+				CURLOPT_TIMEOUT => 30,
+				CURLOPT_USERAGENT => 'Nextcloud-Social/0.10',
+			]);
+			$success = curl_exec($ch);
+			$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			$contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+			curl_close($ch);
+			fclose($fp);
+
+			if (!$success || $httpCode < 200 || $httpCode >= 300) {
+				unlink($tmpFile);
+				throw new Exception('Failed to download image from URL (HTTP ' . $httpCode . ')');
+			}
+
+			$actor = $this->accountService->getActorFromUserId($this->userId);
+
+			$image = new Image();
+			$image->setLocal(true);
+			$image->setAccount($actor->getPreferredUsername());
+			$image->setUrlCloud($this->configService->getCloudUrl());
+			$image->generateUniqueId('/documents/header');
+			$image->setPublic(true);
+
+			$this->cacheDocumentService->saveFromTempToCache($image, $tmpFile);
+			$image->setUrl($image->getMediaUrl(\OC::$server->get(\OCP\IURLGenerator::class), $image->getMimeType()));
+
+			$interface = AP::$activityPub->getInterfaceForItem($image);
+			$interface->save($image);
+
+			unlink($tmpFile);
+
+			$this->accountService->cacheLocalActorByUsername($actor->getPreferredUsername());
+			$cached = $this->cacheActorService->getFromId($actor->getId());
+			$cached->setHeader($image->getUrl());
+			$this->actorService->cacheLocalActor($cached);
+
+			try {
+				$updateItem = clone $cached;
+				$updateItem->addInstancePath(new InstancePath(
+					$cached->getId(), InstancePath::TYPE_FOLLOWERS, InstancePath::PRIORITY_LOW
+				));
+				$this->activityService->updateActivity($cached, $updateItem);
+			} catch (Exception $e) {
+				$this->logger->warning('[LocalController] Failed to federate banner change', [
+					'exception' => $e->getMessage(),
+				]);
+			}
+
+			$this->logger->info('[LocalController] Banner uploaded via URL', [
+				'userId' => $this->userId,
+				'url' => $image->getUrl(),
+			]);
+
+			return $this->success([
+				'url' => $image->getUrl(),
+				'id' => $image->getId(),
+			]);
+		} catch (Exception $e) {
+			$this->logger->error('[LocalController] uploadBannerByUrl failed', [
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
 			return $this->fail($e);
 		}
 	}
@@ -380,6 +564,7 @@ class LocalController extends Controller {
 			$this->initViewer();
 
 			$account = $this->cacheActorService->getFromAccount($username);
+			$this->streamService->syncRemoteTimeline($account);
 			$posts = $this->streamService->getStreamAccount($account->getId(), $since, $limit);
 
 			return $this->success($posts);
@@ -534,6 +719,7 @@ class LocalController extends Controller {
 				throw new AccountDoesNotExistException('User not logged in');
 			}
 			$local = $this->accountService->getActorFromUserId($this->userId);
+			$this->accountService->cacheLocalActorByUsername($local->getPreferredUsername());
 			$actor = $this->cacheActorService->getFromLocalAccount($local->getPreferredUsername());
 
 			return $this->success(['account' => $actor]);
@@ -591,7 +777,7 @@ class LocalController extends Controller {
 		try {
 			$this->initViewer();
 
-			$actor = $this->cacheActorService->getFromLocalAccount($username);
+			$actor = $this->getLocalAccountWithCacheFallback($username);
 			$actor->setCompleteDetails(true);
 			$actor->setExportFormat(ACore::FORMAT_LOCAL);
 
@@ -609,7 +795,7 @@ class LocalController extends Controller {
 		try {
 			$this->initViewer();
 
-			$actor = $this->cacheActorService->getFromLocalAccount($username);
+			$actor = $this->getLocalAccountWithCacheFallback($username);
 			$following = $this->followService->getFollowers($actor);
 
 			return $this->success($following);
@@ -627,7 +813,7 @@ class LocalController extends Controller {
 		try {
 			$this->initViewer();
 
-			$actor = $this->cacheActorService->getFromLocalAccount($username);
+			$actor = $this->getLocalAccountWithCacheFallback($username);
 			$following = $this->followService->getFollowing($actor);
 
 			return $this->success($following);
@@ -667,8 +853,9 @@ class LocalController extends Controller {
 			if ($isLocal) {
 				$this->logger->debug('[LocalController] Local account detected', ['username' => $username]);
 				try {
-					// Try to get or create the local actor
+					// Try to get or create the local actor and refresh its cached avatar/header.
 					$this->accountService->getActorFromUserId($username, true);
+					$this->accountService->cacheLocalActorByUsername($username);
 					$this->logger->info('[LocalController] Local actor ensured', ['username' => $username]);
 				} catch (Exception $e) {
 					$this->logger->warning('[LocalController] Failed to ensure local actor', [
@@ -678,8 +865,24 @@ class LocalController extends Controller {
 				}
 			}
 
-			$actor = $this->cacheActorService->getFromAccount($account);
+			if ($isLocal) {
+				$actor = $this->getLocalAccountWithCacheFallback($username);
+			} else {
+				$actor = $this->cacheActorService->getFromAccount($account);
+			}
 			$actor->setExportFormat(ACore::FORMAT_LOCAL);
+
+			// For remote actors, fetch follower/following/post counts
+			if (!$actor->isLocal()) {
+				try {
+					$this->cacheActorService->addRemoteActorDetailCount($actor);
+				} catch (Exception $e) {
+					$this->logger->debug('[LocalController] Failed to fetch remote actor details', [
+						'account' => $account,
+						'error' => $e->getMessage()
+					]);
+				}
+			}
 
 			$this->logger->info('[LocalController] Actor info retrieved', ['actorId' => $actor->getId()]);
 			return new DataResponse($actor, Http::STATUS_OK);
@@ -709,6 +912,28 @@ class LocalController extends Controller {
 		}
 	}
 
+	private function getLocalAccountWithCacheFallback(string $username): Person {
+		try {
+			return $this->cacheActorService->getFromLocalAccount($username);
+		} catch (CacheActorDoesNotExistException $e) {
+			$this->logger->debug('[LocalController] Rebuilding local actor cache', [
+				'username' => $username,
+				'error' => $e->getMessage(),
+			]);
+
+			try {
+				$this->accountService->cacheLocalActorByUsername($username);
+			} catch (Exception $cacheError) {
+				$this->logger->debug('[LocalController] Local actor cache rebuild failed', [
+					'username' => $username,
+					'error' => $cacheError->getMessage(),
+				]);
+			}
+
+			return $this->cacheActorService->getFromLocalAccount($username);
+		}
+	}
+
 	/**
 	 * @NoCSRFRequired
 	 * @NoAdminRequired
@@ -730,6 +955,29 @@ class LocalController extends Controller {
 			} else {
 				throw new InvalidResourceException('no avatar for this Actor');
 			}
+		} catch (Exception $e) {
+			return $this->fail($e, [], Http::STATUS_NOT_FOUND, false);
+		}
+	}
+
+
+	/**
+	 * @NoCSRFRequired
+	 * @NoAdminRequired
+	 * @PublicPage
+	 */
+	public function globalActorHeader(string $id): Response {
+		try {
+			$actor = $this->cacheActorService->getFromId($id);
+			$headerUrl = $actor->getHeader();
+			if ($headerUrl === '') {
+				throw new InvalidResourceException('no header for this Actor');
+			}
+
+			$response = new RedirectResponse($headerUrl);
+			$response->cacheFor(86400);
+
+			return $response;
 		} catch (Exception $e) {
 			return $this->fail($e, [], Http::STATUS_NOT_FOUND, false);
 		}

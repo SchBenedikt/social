@@ -41,23 +41,8 @@ use Psr\Log\LoggerInterface;
  * @package OCA\Social\Service
  */
 class AccountService {
-	public const KEY_PAIR_LIFESPAN = 7;
-	public const TIME_RETENTION = 3600; // seconds before fully delete account
-	use TArrayTools;
 
-	private IUserManager $userManager;
-	private IUserSession $userSession;
-	private IAccountManager $accountManager;
-	private ActorsRequest $actorsRequest;
-	private FollowsRequest $followsRequest;
-	private StreamRequest $streamRequest;
-	private ActorService $actorService;
-	private ActivityService $activityService;
-	private AccountService $accountService;
-	private SignatureService $signatureService;
-	private DocumentService $documentService;
-	private ConfigService $configService;
-	private LoggerInterface $logger;
+	private ?string $userId = null;
 
 	public function __construct(
 		IUserManager $userManager,
@@ -206,7 +191,6 @@ class AccountService {
 		$actor = new Person();
 		$actor->setUserId($userId);
 		$actor->setPreferredUsername($username);
-
 		$this->signatureService->generateKeys($actor);
 		$this->actorsRequest->create($actor);
 
@@ -281,6 +265,8 @@ class AccountService {
 			} catch (ItemUnknownException|ItemAlreadyExistsException $e) {
 			}
 
+			$this->loadLocalActorHeader($actor);
+
 			$this->addLocalActorDetailCount($actor);
 			$this->actorService->cacheLocalActor($actor);
 		} catch (ActorDoesNotExistException $e) {
@@ -288,6 +274,34 @@ class AccountService {
 	}
 
 
+	/**
+	 * Load the cached header document URL for a local actor.
+	 *
+	 * @param Person $actor
+	 */
+	private function loadLocalActorHeader(Person $actor): void {
+		try {
+			$headerUrl = $this->actorService->getCachedHeader($actor);
+			if ($headerUrl !== '') {
+				$actor->setHeader($headerUrl);
+			}
+		} catch (Exception $e) {
+		}
+	}
+
+
+	/**
+	 * @param string $username
+	 * @param string $description
+	 *
+	 * @return Person
+	 *
+	 * @throws ActorDoesNotExistException
+	 * @throws SocialAppConfigException
+	 * @throws NoUserException
+	 * @throws ItemAlreadyExistsException
+	 * @throws UrlCloudException
+	 */
 	/**
 	 * @param Person $actor
 	 */
