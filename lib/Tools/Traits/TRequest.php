@@ -44,7 +44,7 @@ trait TRequest {
 		$result = $this->doRequest($request);
 
 		if (strpos($request->getContentType(), 'application/xrd') === 0) {
-			$xml = simplexml_load_string($result);
+			$xml = simplexml_load_string($result, 'SimpleXMLElement', LIBXML_NONET);
 			$result = json_encode($xml, JSON_UNESCAPED_SLASHES);
 		}
 
