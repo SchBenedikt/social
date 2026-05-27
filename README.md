@@ -10,10 +10,10 @@ Short summary: This app implements ActivityPub and enables Fediverse functionali
 
 - 🧭 Timelines — browse public, local and home timelines
 - ✍️ Composer — create posts, replies and mentions
-- ✏️ Edit posts — edit local posts and broadcast them as ActivityPub `Update`
+- ✏️ Edit posts — edit local posts
 - 👍 / 🔁 / 💬 Post actions — like, boost (announce), reply
 - 🧾 Profiles — avatar, header/banner and metadata support
-- 🌐 Federation — send and receive ActivityPub activities (Create, Update, Like, Undo, Announce)
+- 🌐 Federation — send and receive ActivityPub activities (Create, Like, Announce)
 - 🔎 Discovery — webfinger and remote user discovery
 - ⚙️ Backend — persistence, queues and signature support for reliable delivery
 
@@ -61,14 +61,6 @@ If you'd like, I can implement an immediate client-side cache refresh after a su
 occ social:reset
 ```
 
-## ⚠️ Notes
-
-- Emojis may require database `utf8mb4` / 4-byte support (see Nextcloud admin docs).
-
 ## License
 
 See the repository's license files in the `LICENSES/` directory.
-
----
-
-If you want, I can also add a short release note file or adjust the UI to refresh the banner immediately after upload.
