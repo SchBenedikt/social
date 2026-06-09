@@ -11,6 +11,7 @@ namespace OCA\Social\Model;
 
 use JsonSerializable;
 use OCA\Social\Exceptions\LinkedDataSignatureMissingException;
+use OCA\Social\Model\ActivityPub\ACore;
 use OCA\Social\Service\SignatureService;
 use OCA\Social\Tools\Traits\TArrayTools;
 
@@ -179,9 +180,15 @@ class LinkedDataSignature implements JsonSerializable {
 	 * @throws LinkedDataSignatureMissingException
 	 */
 	public function import(array $data): void {
-		//		if (!in_array(ACore::CONTEXT_SECURITY, $this->getArray('@context', $data, []))) {
-		//			throw new LinkedDataSignatureMissingException('no @context security entry');
-		//		}
+		// Strip dangerous JSON-LD keywords that can restructure the graph
+		// to prevent graph manipulation attacks (@graph, @reverse, @included)
+		unset($data['@graph'], $data['@reverse'], $data['@included']);
+
+		if (!$this->hasValidContext($data)) {
+			throw new LinkedDataSignatureMissingException(
+				'no valid @context in signed object'
+			);
+		}
 
 		$signature = $this->getArray('signature', $data, []);
 		if ($signature === []) {
@@ -197,6 +204,30 @@ class LinkedDataSignature implements JsonSerializable {
 		unset($data['signature']);
 
 		$this->setObject($data);
+	}
+
+
+	/**
+	 * @param array $data
+	 *
+	 * @return bool
+	 */
+	private function hasValidContext(array $data): bool {
+		if (!array_key_exists('@context', $data)) {
+			return false;
+		}
+
+		$contexts = $data['@context'];
+		if (is_string($contexts)) {
+			$contexts = [$contexts];
+		}
+
+		if (!is_array($contexts)) {
+			return false;
+		}
+
+		return in_array(ACore::CONTEXT_ACTIVITYSTREAMS, $contexts, true)
+			|| in_array(ACore::CONTEXT_SECURITY, $contexts, true);
 	}
 
 

@@ -35,8 +35,7 @@
 						type="url"
 						class="setup-input"
 						required>
-					<NcButton
-						type="primary"
+					<NcButton type="primary"
 						native-type="submit">
 						{{ t('social', 'Finish setup') }}
 					</NcButton>
@@ -297,6 +296,5 @@ img.emoji {
 	font-size: 12px;
 	color: var(--color-text-lighter);
 }
-
 
 </style>

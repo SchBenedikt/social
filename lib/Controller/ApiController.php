@@ -29,10 +29,10 @@ use OCA\Social\Model\Post;
 use OCA\Social\Service\AccountService;
 use OCA\Social\Service\ActionService;
 use OCA\Social\Service\CacheActorService;
-use OCA\Social\Service\CurlService;
 use OCA\Social\Service\CacheDocumentService;
 use OCA\Social\Service\ClientService;
 use OCA\Social\Service\ConfigService;
+use OCA\Social\Service\CurlService;
 use OCA\Social\Service\DocumentService;
 use OCA\Social\Service\FollowService;
 use OCA\Social\Service\InstanceService;
@@ -44,10 +44,10 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\FileDisplayResponse;
 use OCP\AppFramework\Http\Response;
+use OCP\Files\NotFoundException;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
-use OCP\Files\NotFoundException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -250,9 +250,9 @@ class ApiController extends Controller {
 				);
 			}
 
-			if ($status->getInReplyToId() > 0) {
+			if ($status->getInReplyToId() !== '' && $status->getInReplyToId() !== '0') {
 				try {
-					$replyTo = $this->streamService->getStreamByNid($status->getInReplyToId());
+					$replyTo = $this->streamService->getStreamById($status->getInReplyToId());
 					$post->setReplyTo($replyTo->getId());
 				} catch (StreamNotFoundException $e) {
 					$this->logger->debug('reply to post not found');
@@ -284,14 +284,14 @@ class ApiController extends Controller {
 
 
 	/**
-	 * @PublicPage
 	 * @NoCSRFRequired
+	 * @PublicPage
 	 *
-	 * @param int $nid
+	 * @param string $id
 	 *
 	 * @return DataResponse
 	 */
-	public function statusUpdate(int $nid): DataResponse {
+	public function statusUpdate(string $id): DataResponse {
 		try {
 			$this->initViewer(true);
 
@@ -302,7 +302,7 @@ class ApiController extends Controller {
 			$actor = $this->accountService->getActorFromUserId($this->currentSession(), true);
 
 			$item = $this->postService->editPost(
-				$nid,
+				$id,
 				$actor,
 				nl2br($status->getStatus()),
 				$status->getSpoilerText() !== '' ? $status->getSpoilerText() : null,
@@ -518,16 +518,15 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 * @PublicPage
 	 *
-	 * @param int $nid
+	 * @param string $id
 	 *
 	 * @return DataResponse
 	 */
-	public function statusGet(int $nid): DataResponse {
+	public function statusGet(string $id): DataResponse {
 		try {
 			$this->initViewer(false);
 
-			$item = $this->streamService->getStreamByNid($nid);
-			$item->setExportFormat(ACore::FORMAT_LOCAL);
+			$item = $this->streamService->getStreamById($id, true, ACore::FORMAT_LOCAL);
 
 			return new DataResponse($item, Http::STATUS_OK);
 		} catch (Exception $e) {
@@ -540,14 +539,14 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 * @PublicPage
 	 *
-	 * @param int $nid
+	 * @param string $id
 	 *
 	 * @return DataResponse
 	 */
-	public function statusContext(int $nid): DataResponse {
+	public function statusContext(string $id): DataResponse {
 		try {
 			$this->initViewer(false);
-			$context = $this->streamService->getContextByNid($nid);
+			$context = $this->streamService->getContextById($id);
 
 			return new DataResponse($context, Http::STATUS_OK);
 		} catch (Exception $e) {
@@ -559,22 +558,22 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 * @PublicPage
 	 *
-	 * @param int $nid
-	 * @param string $action
+	 * @param string $id
+	 * @param string $act
 	 *
 	 * @return DataResponse
 	 */
-	public function statusAction(int $nid, string $act): DataResponse {
+	public function statusAction(string $id, string $act): DataResponse {
 		try {
 			$this->initViewer(true);
 			$actor = $this->accountService->getActor($this->viewer->getPreferredUsername());
-			$item = $this->actionService->action($actor, $nid, $act);
+			$item = $this->actionService->action($actor, $id, $act);
 
 			if ($item === null) {
-				$item = $this->streamService->getStreamByNid($nid);
+				$item = $this->streamService->getStreamById($id, true, ACore::FORMAT_LOCAL);
+			} else {
+				$item->setExportFormat(ACore::FORMAT_LOCAL);
 			}
-
-			$item->setExportFormat(ACore::FORMAT_LOCAL);
 
 			return new DataResponse($item, Http::STATUS_OK);
 		} catch (Exception $e) {

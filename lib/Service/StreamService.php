@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\Social\Service;
 
 use Exception;
-use OCA\Social\AP;
 use OCA\Social\Db\StreamRequest;
 use OCA\Social\Exceptions\InvalidOriginException;
 use OCA\Social\Exceptions\InvalidResourceException;
@@ -23,7 +22,6 @@ use OCA\Social\Model\ActivityPub\ACore;
 use OCA\Social\Model\ActivityPub\Actor\Person;
 use OCA\Social\Model\ActivityPub\Object\Note;
 use OCA\Social\Model\ActivityPub\OrderedCollection;
-use OCA\Social\Model\ActivityPub\OrderedCollectionPage;
 use OCA\Social\Model\ActivityPub\Stream;
 use OCA\Social\Model\Client\Options\ProbeOptions;
 use OCA\Social\Model\InstancePath;
@@ -353,6 +351,36 @@ class StreamService {
 	 */
 	public function getContextByNid(int $nid): array {
 		$curr = $post = $this->streamRequest->getStreamByNid($nid);
+
+		$ancestors = [];
+		for ($i = 0; $i < self::ANCESTOR_LIMIT; $i++) {
+			if ($curr->getInReplyTo() === '') {
+				break;
+			}
+
+			try {
+				$curr = $this->streamRequest->getStreamById($curr->getInReplyTo(), true);
+				$curr->setExportFormat(ACore::FORMAT_LOCAL);
+				$ancestors[] = $curr;
+			} catch (StreamNotFoundException $e) {
+				break; // ancestor might be out of range for viewer
+			}
+		}
+
+		return [
+			'ancestors' => array_reverse($ancestors),
+			'descendants' => $this->streamRequest->getDescendants($post->getId())
+		];
+	}
+
+
+	/**
+	 * @param string $id
+	 *
+	 * @return array
+	 */
+	public function getContextById(string $id): array {
+		$curr = $post = $this->streamRequest->getStreamById($id, true);
 
 		$ancestors = [];
 		for ($i = 0; $i < self::ANCESTOR_LIMIT; $i++) {

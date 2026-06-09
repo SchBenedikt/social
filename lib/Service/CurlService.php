@@ -41,6 +41,24 @@ class CurlService {
 	public const ASYNC_REQUEST_TOKEN = '/async/request/{token}';
 	public const USER_AGENT = 'Nextcloud Social';
 
+	/** @var string[] CIDR ranges considered private/reserved */
+	private const BLOCKED_IP_RANGES = [
+		'0.0.0.0/8',
+		'10.0.0.0/8',
+		'100.64.0.0/10',
+		'127.0.0.0/8',
+		'169.254.0.0/16',
+		'172.16.0.0/12',
+		'192.0.0.0/24',
+		'192.168.0.0/16',
+		'198.18.0.0/15',
+		'198.51.100.0/24',
+		'203.0.113.0/24',
+		'::1/128',
+		'fc00::/7',
+		'fe80::/10',
+	];
+
 	private ConfigService $configService;
 	private FediverseService $fediverseService;
 	private LoggerInterface $logger;
@@ -315,7 +333,7 @@ class CurlService {
 		$result = $this->doRequest($request);
 
 		if (strpos($request->getContentType(), 'application/xrd') === 0) {
-			$xml = simplexml_load_string($result);
+			$xml = simplexml_load_string($result, 'SimpleXMLElement', LIBXML_NONET);
 			$result = json_encode($xml, JSON_UNESCAPED_SLASHES);
 		}
 
@@ -329,13 +347,18 @@ class CurlService {
 
 
 	/**
-	 * @throws RequestContentException
+	 * @param Request $request
+	 *
+	 * @return string
 	 * @throws RequestNetworkException
-	 * @throws RequestResultSizeException
-	 * @throws RequestServerException
 	 */
 	public function doRequestOrig(Request $request): string {
 		$this->maxDownloadSizeReached = false;
+
+		$pinned = [];
+		if ($request->getHost() !== '') {
+			$pinned = $this->resolveAndPinHost($request->getHost());
+		}
 
 		// allow falling back to the next protocol (e.g. http) when certain
 		// curl errors occur, like SSL hostname mismatch (60)
@@ -343,7 +366,7 @@ class CurlService {
 		$result = '';
 		foreach ($request->getProtocols() as $protocol) {
 			$request->setUsedProtocol($protocol);
-			$curl = $this->initRequest($request);
+			$curl = $this->initRequest($request, $pinned);
 
 			$result = curl_exec($curl);
 			$this->logger->debug(
@@ -376,10 +399,11 @@ class CurlService {
 
 	/**
 	 * @param Request $request
+	 * @param array $pinned
 	 *
 	 * @return CurlHandle
 	 */
-	private function initRequest(Request $request): CurlHandle {
+	private function initRequest(Request $request, array $pinned = []): CurlHandle {
 		$curl = $this->generateCurlRequest($request);
 		$this->initRequestHeaders($curl, $request);
 
@@ -391,6 +415,11 @@ class CurlService {
 
 		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, $request->isVerifyPeer());
 		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, $request->isFollowLocation());
+
+		// Pin resolved IPs to prevent DNS rebinding
+		if (!empty($pinned)) {
+			curl_setopt($curl, CURLOPT_RESOLVE, $pinned);
+		}
 
 		curl_setopt($curl, CURLOPT_BUFFERSIZE, 128);
 		curl_setopt($curl, CURLOPT_NOPROGRESS, false);
@@ -506,5 +535,121 @@ class CurlService {
 				), $errno
 			);
 		}
+	}
+
+
+	/**
+	 * Resolve hostname to IPs, validate against private ranges,
+	 * and return CURLOPT_RESOLVE entries to prevent DNS rebinding.
+	 *
+	 * @param string $host
+	 *
+	 * @return string[]
+	 * @throws RequestNetworkException
+	 */
+	private function resolveAndPinHost(string $host): array {
+		if (filter_var($host, FILTER_VALIDATE_IP)) {
+			if ($this->isIpBlocked($host)) {
+				throw new RequestNetworkException('Host resolves to a blocked IP range: ' . $host);
+			}
+			return [];
+		}
+
+		$records = dns_get_record($host, DNS_A | DNS_AAAA);
+		if ($records === false || $records === []) {
+			throw new RequestNetworkException('Could not resolve host: ' . $host);
+		}
+
+		$pinned = [];
+		foreach ($records as $record) {
+			$ip = $record['type'] === 'AAAA' ? $record['ipv6'] : $record['ip'];
+			if ($this->isIpBlocked($ip)) {
+				throw new RequestNetworkException(
+					'Host ' . $host . ' resolves to blocked IP: ' . $ip
+				);
+			}
+			// Pin both HTTP (80) and HTTPS (443) to prevent DNS rebinding
+			// regardless of which protocol the request eventually uses
+			$pinned[] = $host . ':443:' . $ip;
+			$pinned[] = $host . ':80:' . $ip;
+		}
+
+		return $pinned;
+	}
+
+
+	/**
+	 * @param string $ip
+	 *
+	 * @return bool
+	 */
+	private function isIpBlocked(string $ip): bool {
+		foreach (self::BLOCKED_IP_RANGES as $range) {
+			if ($this->cidrMatch($ip, $range)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+
+	/**
+	 * @param string $ip
+	 * @param string $range
+	 *
+	 * @return bool
+	 */
+	private function cidrMatch(string $ip, string $range): bool {
+		if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+			return $this->cidrMatchV6($ip, $range);
+		}
+
+		[$subnet, $bits] = explode('/', $range);
+		if (filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+			return $this->cidrMatchV6($ip, $range);
+		}
+
+		$ipLong = ip2long($ip);
+		$subnetLong = ip2long($subnet);
+		$mask = -1 << (32 - (int)$bits);
+		$subnetLong &= $mask;
+
+		return ($ipLong & $mask) === $subnetLong;
+	}
+
+
+	/**
+	 * @param string $ip
+	 * @param string $range
+	 *
+	 * @return bool
+	 */
+	private function cidrMatchV6(string $ip, string $range): bool {
+		[$subnet, $bits] = explode('/', $range);
+
+		$ipBin = inet_pton($ip);
+		$subnetBin = inet_pton($subnet);
+
+		if ($ipBin === false || $subnetBin === false) {
+			return false;
+		}
+
+		$bits = (int)$bits;
+		$fullBytes = intdiv($bits, 8);
+		$remainingBits = $bits % 8;
+
+		for ($i = 0; $i < $fullBytes; $i++) {
+			if ($ipBin[$i] !== $subnetBin[$i]) {
+				return false;
+			}
+		}
+
+		if ($remainingBits > 0) {
+			$mask = 0xFF << (8 - $remainingBits);
+			return (ord($ipBin[$fullBytes]) & $mask) === (ord($subnetBin[$fullBytes]) & $mask);
+		}
+
+		return true;
 	}
 }

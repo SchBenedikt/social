@@ -15,6 +15,11 @@ const state = {
 	searchQuery: '',
 }
 
+/**
+ *
+ * @param state
+ * @param status
+ */
 function addToStatuses(state, status) {
 	state.statuses = { ...state.statuses, [status.id]: status }
 	if (status.reblog !== undefined && status.reblog !== null) {
@@ -50,7 +55,7 @@ const mutations = {
 			state.timeline.splice(timelineIndex, 1)
 		}
 		const parentsTimelineIndex = state.parentsTimeline.indexOf(status.id)
-		if (timelineIndex !== -1) {
+		if (parentsTimelineIndex !== -1) {
 			state.parentsTimeline.splice(parentsTimelineIndex, 1)
 		}
 	},
@@ -187,7 +192,7 @@ const actions = {
 					headers: {
 						'Content-Type': 'multipart/form-data',
 					},
-				}
+				},
 			)
 			logger.info('Media created with id ' + data.id)
 			return data
@@ -209,7 +214,7 @@ const actions = {
 		try {
 			const response = await axios.put(
 				generateUrl(`apps/social/api/v1/statuses/${status.id}`),
-				{ status: content, spoiler_text, sensitive }
+				{ status: content, spoiler_text, sensitive },
 			)
 			context.commit('updateStatus', response.data)
 			logger.info('Post edited', response.data.id)

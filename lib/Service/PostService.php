@@ -195,8 +195,8 @@ class PostService {
 	/**
 	 * @throws \Exception
 	 */
-	public function editPost(int $nid, Person $actor, string $content, ?string $spoilerText = null, ?bool $sensitive = null): Stream {
-		$stream = $this->streamService->getStreamByNid($nid);
+	public function editPost(string $id, Person $actor, string $content, ?string $spoilerText = null, ?bool $sensitive = null): Stream {
+		$stream = $this->streamService->getStreamById($id);
 
 		if ($stream->getAttributedTo() !== $actor->getId()) {
 			throw new \Exception('Not authorized to edit this post');
@@ -209,11 +209,10 @@ class PostService {
 		if ($sensitive !== null) {
 			$stream->setSensitive($sensitive);
 		}
-		$stream->setPublished(date('c'));
 
 		$this->streamService->updateStream($stream);
 
-		$updated = $this->streamService->getStreamByNid($nid);
+		$updated = $this->streamService->getStreamById($id);
 		$updated->addInstancePath(
 			new InstancePath(
 				$actor->getId(), InstancePath::TYPE_FOLLOWERS, InstancePath::PRIORITY_LOW

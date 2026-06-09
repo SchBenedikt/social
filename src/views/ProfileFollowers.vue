@@ -2,7 +2,9 @@
 	<div class="social__followers">
 		<UserEntry v-for="user in users" :key="user.id" :item="user" />
 		<div ref="sentinel" class="list-sentinel" />
-		<div v-if="loading" class="loading-indicator">Loading…</div>
+		<div v-if="loading" class="loading-indicator">
+			Loading…
+		</div>
 	</div>
 </template>
 

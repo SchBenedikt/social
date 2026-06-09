@@ -66,22 +66,22 @@ class ActionService {
 	 * should return null
 	 * will return Stream only with translate action
 	 *
-	 * @param int $nid
+	 * @param string $id
 	 * @param string $action
 	 *
 	 * @return Stream|null
 	 * @throws InvalidActionException
 	 */
-	public function action(Person $actor, int $nid, string $action): ?Stream {
+	public function action(Person $actor, string $id, string $action): ?Stream {
 		if (!in_array($action, self::$availableStatusAction)) {
 			throw new InvalidActionException();
 		}
 
-		$post = $this->streamService->getStreamByNid($nid);
+		$post = $this->streamService->getStreamById($id, true);
 
 		switch ($action) {
 			case self::TRANSLATE:
-				return $this->translate($nid);
+				return $this->translate($id);
 
 			case self::FAVOURITE:
 				$this->favourite($actor, $post->getId());
@@ -107,13 +107,13 @@ class ActionService {
 	/**
 	 * TODO: returns a translated version of the Status
 	 *
-	 * @param int $nid
+	 * @param string $id
 	 *
 	 * @return Stream
 	 * @throws StreamNotFoundException
 	 */
-	private function translate(int $nid): Stream {
-		return $this->streamService->getStreamByNid($nid);
+	private function translate(string $id): Stream {
+		return $this->streamService->getStreamById($id, true);
 	}
 
 	private function favourite(Person $actor, string $postId, bool $enabled = true): void {

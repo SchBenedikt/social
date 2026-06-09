@@ -112,6 +112,7 @@ import VisibilitySelect from '../Visibility/VisibilitySelect.vue'
 import SubmitStatusButton from './SubmitStatusButton.vue'
 import MessageContent from '../MessageContent.js'
 import eventBus from '../../services/eventBus.js'
+import { nodeToPlainText } from '../../utils/htmlToPlainText.js'
 
 export default {
 	name: 'Composer',
@@ -272,6 +273,7 @@ export default {
 	},
 	mounted() {
 		eventBus.on('composer-reply', (data) => {
+			this.savedVisibility = this.visibility
 			this.replyTo = data
 			this.prefillMessageWithMention(data.account)
 			this.visibility = data.visibility
@@ -411,6 +413,7 @@ export default {
 			} finally {
 				this.loading = false
 				this.replyTo = null
+				this.savedVisibility = undefined
 				this.$refs.composerInput.innerText = ''
 				this.updateStatusContent()
 				this.attachments = {}
@@ -419,6 +422,10 @@ export default {
 		},
 		closeReply() {
 			this.replyTo = null
+			if (this.savedVisibility !== undefined) {
+				this.visibility = this.savedVisibility
+				this.savedVisibility = undefined
+			}
 			this.$store.commit('setComposerDisplayStatus', false)
 		},
 		remoteSearchAccounts(text) {
@@ -433,33 +440,6 @@ export default {
 			this.attachments = newAttachments
 		},
 	},
-}
-
-function nodeToPlainText(node) {
-	let text = ''
-	for (const child of Array.from(node.childNodes)) {
-		if (child.nodeType === Node.TEXT_NODE) {
-			text += child.textContent || ''
-			continue
-		}
-
-		if (child.nodeType !== Node.ELEMENT_NODE) {
-			continue
-		}
-
-		const element = child
-		if (element.tagName === 'BR') {
-			text += '\n'
-			continue
-		}
-
-		text += nodeToPlainText(element)
-		if (['DIV', 'P', 'LI', 'BLOCKQUOTE', 'PRE'].includes(element.tagName)) {
-			text += '\n'
-		}
-	}
-
-	return text
 }
 </script>
 

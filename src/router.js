@@ -6,6 +6,9 @@ const Profile = () => import(/* webpackChunkName: "profile" */'./views/Profile.v
 const ProfileTimeline = () => import(/* webpackChunkName: "profile" */'./views/ProfileTimeline.vue')
 const ProfileFollowers = () => import(/* webpackChunkName: "profile" */'./views/ProfileFollowers.vue')
 
+/**
+ *
+ */
 function getBase() {
 	if (window.OC && window.OC.webroot) {
 		return window.OC.webroot + '/apps/social/'

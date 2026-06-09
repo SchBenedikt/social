@@ -134,6 +134,7 @@ import moment from '@nextcloud/moment'
 import MessageContent from './MessageContent.js'
 import visibilitiesInfo from './Visibility/VisibilitiesInfos.js'
 import VisibilityIcon from './Visibility/VisibilityIcon.vue'
+import { htmlToPlainText } from '../utils/htmlToPlainText.js'
 
 export default {
 	name: 'TimelinePost',
@@ -150,12 +151,6 @@ export default {
 		VisibilityIcon,
 	},
 	mixins: [currentUser],
-	data() {
-		return {
-			isEditing: false,
-			editContent: '',
-		}
-	},
 	props: {
 		/** @type {import('vue').PropType<import('../types/Mastodon.js').Status>} */
 		item: {
@@ -166,6 +161,12 @@ export default {
 			type: String,
 			required: true,
 		},
+	},
+	data() {
+		return {
+			isEditing: false,
+			editContent: '',
+		}
 	},
 	computed: {
 		/**
@@ -261,9 +262,10 @@ export default {
 			eventBus.emit('composer-reply', this.item)
 		},
 		boost() {
+			const target = this.item.reblog ?? this.item
 			const params = {
-				status: this.item,
-				parentAnnounce: this.reblog,
+				status: target,
+				parentAnnounce: this.item.reblog ? this.item : null,
 			}
 			if (this.isBoosted) {
 				this.$store.dispatch('postUnBoost', params)
@@ -302,9 +304,10 @@ export default {
 			this.$store.dispatch('postDelete', this.item)
 		},
 		like() {
+			const target = this.item.reblog ?? this.item
 			const params = {
-				status: this.item,
-				parentAnnounce: this.reblog,
+				status: target,
+				parentAnnounce: this.item.reblog ? this.item : null,
 			}
 			if (this.isLiked) {
 				this.$store.dispatch('postUnlike', params)
@@ -314,48 +317,8 @@ export default {
 		},
 	},
 }
-
-function htmlToPlainText(html) {
-	const parser = new DOMParser()
-	const dom = parser.parseFromString(`<div id="rootwrapper">${html}</div>`, 'text/html')
-	const root = dom.getElementById('rootwrapper')
-	if (!root) {
-		return ''
-	}
-
-	return nodeToPlainText(root).trim()
-}
-
-function nodeToPlainText(node) {
-	let text = ''
-	for (const child of Array.from(node.childNodes)) {
-		if (child.nodeType === Node.TEXT_NODE) {
-			text += child.textContent || ''
-			continue
-		}
-
-		if (child.nodeType !== Node.ELEMENT_NODE) {
-			continue
-		}
-
-		const element = child
-		if (element.tagName === 'BR') {
-			text += '\n'
-			continue
-		}
-
-		text += nodeToPlainText(element)
-		if (['DIV', 'P', 'LI', 'BLOCKQUOTE', 'PRE'].includes(element.tagName)) {
-			text += '\n'
-		}
-	}
-
-	return text
-}
 </script>
 <style scoped lang="scss">
-@import '@nextcloud/vue-richtext/dist/style.css';
-
 .post-content {
 	padding: 18px 20px 14px;
 	font-size: 15px;

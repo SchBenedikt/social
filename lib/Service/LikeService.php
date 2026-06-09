@@ -128,7 +128,9 @@ class LikeService {
 		$this->assignInstance($like, $actor, $note);
 
 		$this->logger->info('LikeService::create - instance paths', [
-			'paths' => array_map(function ($p) { return $p->getAddress(); }, $like->getInstancePaths()),
+			'paths' => array_map(function ($p) {
+				return $p->getAddress();
+			}, $like->getInstancePaths()),
 			'likeId' => $like->getId(),
 		]);
 
